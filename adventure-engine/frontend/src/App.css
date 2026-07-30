@@ -226,48 +226,28 @@ select {
   margin-top: 0;
 }
 
-.finder-panel,
-.budget-panel,
-.preference-panel {
+.finder-panel {
   margin-bottom: 2rem;
 }
 
-.finder-panel__intro,
-.budget-panel__intro,
-.preference-panel__intro {
+.finder-panel__intro {
   margin-bottom: 1rem;
 }
 
-.finder-form,
-.budget-form,
-.preference-form {
+.finder-form {
   display: grid;
   gap: 1.5rem;
 }
 
-.finder-grid,
-.budget-form__grid {
+.finder-grid {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.budget-summary,
-.finder-results,
-.submission-summary {
+.finder-results {
   display: grid;
   gap: 1rem;
-}
-
-.budget-summary div,
-.submission-summary p {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: var(--radius-md);
-  background: var(--color-surface-alt);
 }
 
 .finder-actions,
@@ -360,11 +340,6 @@ textarea {
 .chip--active {
   background: var(--color-chip-active-bg);
   border-color: var(--color-chip-active-border);
-}
-
-.radio-group {
-  display: grid;
-  gap: 0.75rem;
 }
 
 .radio-card {
@@ -468,12 +443,6 @@ textarea {
   color: var(--color-warning-text);
 }
 
-.preference-note {
-  margin: 0.75rem 0 0;
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-}
-
 .not-found {
   padding: 4rem 2rem;
   max-width: 640px;
@@ -542,8 +511,7 @@ textarea:focus-visible,
     border-radius: var(--radius-md);
   }
 
-  .finder-grid,
-  .budget-form__grid {
+  .finder-grid {
     grid-template-columns: 1fr;
   }
 

@@ -102,8 +102,7 @@ a separate mirrored test tree.
 
 ### Coverage and scope
 
-The suite covers `BudgetCalculator` (pure client-side calculation logic),
-`NotFoundPage` (routing), and `AdventureWizard` (step-by-step navigation
+The suite covers `NotFoundPage` (routing) and `AdventureWizard` (step-by-step navigation
 through both the local-adventure and travel-search branches, loading/error
 states, and query-param submission, with `services/geocode`,
 `services/recommendations`, and `services/localActivities` mocked via

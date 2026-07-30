@@ -1,5 +1,4 @@
 import AdventureWizard from '../components/AdventureWizard';
-import BudgetCalculator from '../components/BudgetCalculator';
 
 export default function HomePage() {
   return (
@@ -15,7 +14,6 @@ export default function HomePage() {
       </section>
 
       <AdventureWizard />
-      <BudgetCalculator />
     </main>
   );
 }

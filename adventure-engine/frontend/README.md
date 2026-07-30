@@ -28,7 +28,7 @@ npm run test:watch  # Vitest in watch mode
 ## Structure
 
 - `src/pages/` — route-level components (`HomePage`, `DestinationPage`, `NotFoundPage`).
-- `src/components/` — `AdventureWizard`, `AdventureMap`, `BudgetCalculator`.
+- `src/components/` — `AdventureWizard`, `AdventureMap`.
 - `src/hooks/` — React Query hooks wrapping the service layer.
 - `src/services/` — typed API client functions (one module per backend resource) plus `routing.ts` for the OSRM walking-route calls.
 - `src/test/setup.ts` — Vitest/Testing Library setup (imported via `vite.config.ts`'s `test.setupFiles`).
