@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.destination import Destination
+from app.services.optimizations.geo import haversine_km
 from app.services.weather import DayForecast, get_forecasts_batch
 
 # Near-term outlook used for destination-level scoring (not tied to a specific
@@ -86,8 +87,18 @@ def get_top_recommendations(
     interests: str | None = None,
     top_n: int = 10,
     weights: dict[str, float] | None = None,
+    origin_lat: float | None = None,
+    origin_lon: float | None = None,
+    max_distance_km: float | None = None,
 ) -> list[tuple[Destination, float, dict[str, float], str | None]]:
     """Rank every seeded destination by AdventureScore and return the top `top_n`.
+
+    If origin_lat/origin_lon are supplied, destinations farther than
+    max_distance_km (great-circle distance) are excluded entirely before
+    scoring -- a hard filter, not a soft factor, matching how the
+    progressive recommendation flow constrains travel distance by available
+    time (see travel_time.py). Passing an origin without max_distance_km
+    (or vice versa) is treated as no filter -- both are required together.
 
     Returns a list of (destination, adventure_score, score_breakdown,
     weather_summary) tuples, sorted by adventure_score descending (ties broken
@@ -98,6 +109,14 @@ def get_top_recommendations(
     destinations = list(db.execute(select(Destination)).scalars().all())
     if not destinations:
         return []
+
+    if origin_lat is not None and origin_lon is not None and max_distance_km is not None:
+        destinations = [
+            d for d in destinations
+            if haversine_km(origin_lat, origin_lon, d.latitude, d.longitude) <= max_distance_km
+        ]
+        if not destinations:
+            return []
 
     requested_interests = (
         {tag.strip().lower() for tag in interests.split(",") if tag.strip()} if interests else set()

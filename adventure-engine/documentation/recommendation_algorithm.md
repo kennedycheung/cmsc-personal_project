@@ -12,6 +12,14 @@ per-factor breakdown. Everything is computed from the seeded `destinations`
 table, plus one live call: a near-term weather outlook per destination from
 Open-Meteo (see [`weather_integration.md`](weather_integration.md)).
 
+If an `origin_lat`/`origin_lon` (or `time_bucket`, resolved server-side --
+see [`progressive_recommendation_flow.md`](progressive_recommendation_flow.md))
+is supplied, destinations beyond the resolved `max_distance_km` are excluded
+**before** scoring -- a hard filter, not one more soft factor, since travel
+distance needs to be a real constraint, not a nudge. This is the primary
+entry point for the progressive recommendation flow's >=1-day path; omit the
+origin entirely for the original unfiltered, budget/interests-only behavior.
+
 ## Factors
 
 Each factor is normalized to a `[0, 1]` range before weighting.

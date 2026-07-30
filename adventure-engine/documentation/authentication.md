@@ -63,10 +63,10 @@ the stored snapshot — it doesn't call the itinerary generator again.
 ## Saved preferences
 
 One preference profile per user (`max_budget_per_day`, `interests`,
-`travel_style`) — this is the backend counterpart to the frontend's
-`TripPreferenceForm`, which currently only logs its values to the console
-and doesn't persist anything. Wiring that form to these two endpoints is a
-natural next step, not done as part of this change.
+`travel_style`) — no frontend UI persists to these endpoints yet (the
+progressive recommendation flow's trip-detail inputs are per-request, not
+saved). Wiring a logged-in user's `AdventureWizard` selections to these two
+endpoints is a natural next step, not done as part of this change.
 
 - `GET /api/preferences/me` — lazily creates an empty profile on first
   access, so the endpoint always succeeds once authenticated rather than

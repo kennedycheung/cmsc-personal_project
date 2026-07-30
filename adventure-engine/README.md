@@ -1,14 +1,22 @@
 # Adventure Arbitrage Engine
 
-A full-stack travel-planning app: destination/activity data, a weather-aware
-recommendation and itinerary engine, an OpenStreetMap-based map with real
-walking routes, a placeholder deal-ingestion pipeline, JWT auth with saved
-adventures/preferences/favorites, and a set of "backpacker arbitrage"
-calculators (nearby-airport, overnight-transport, open-jaw routing,
-positioning trips, seasonal and currency arbitrage).
+A full-stack travel-planning app: a progressive recommendation flow that
+starts from where you are and how much time you have, destination/activity
+data, a weather-aware recommendation and itinerary engine, an
+OpenStreetMap-based map with real walking routes, a placeholder
+deal-ingestion pipeline, JWT auth with saved adventures/preferences/
+favorites, and a set of "backpacker arbitrage" calculators (nearby-airport,
+overnight-transport, open-jaw routing, positioning trips, seasonal and
+currency arbitrage).
 
 ## Features
 
+- **Progressive recommendation flow** — starts from "where are you
+  starting from?" and "how much time do you have?" rather than budget
+  first; branches into a live local-activity search (real nearby places
+  via OpenStreetMap, no flights/hotels) for trips under a day, or a
+  distance-constrained destination search for longer trips. See
+  [`documentation/progressive_recommendation_flow.md`](documentation/progressive_recommendation_flow.md).
 - **Destinations & activities** — 64 hand-curated destinations (major US
   cities plus the international destinations Americans most commonly
   travel to, alongside the original seed set), ~90 activities, served via
@@ -16,8 +24,9 @@ positioning trips, seasonal and currency arbitrage).
   activities from OpenStreetMap — see
   [`documentation/osm_activity_ingestion.md`](documentation/osm_activity_ingestion.md).
 - **Recommendations** ("AdventureScore") — ranks destinations against a
-  traveler's budget/interests, factoring in real live weather (Open-Meteo).
-  See [`documentation/recommendation_algorithm.md`](documentation/recommendation_algorithm.md).
+  traveler's budget/interests and (optionally) distance from a starting
+  location, factoring in real live weather (Open-Meteo). See
+  [`documentation/recommendation_algorithm.md`](documentation/recommendation_algorithm.md).
 - **Itinerary generation** — builds a day-by-day plan from stored
   activities only, weather-aware scheduling (an outdoor hike gets bumped to
   the clear day, not the rainy one), optionally planned around a specific
@@ -104,6 +113,7 @@ Full rationale (including why external APIs are mocked in tests) in
 | Doc | Covers |
 |---|---|
 | [`architecture.md`](documentation/architecture.md) | Repo layout |
+| [`progressive_recommendation_flow.md`](documentation/progressive_recommendation_flow.md) | Origin/time/branch wizard, live local-activity discovery |
 | [`recommendation_algorithm.md`](documentation/recommendation_algorithm.md) | AdventureScore ranking |
 | [`itinerary_algorithm.md`](documentation/itinerary_algorithm.md) | Day-by-day scheduling |
 | [`weather_integration.md`](documentation/weather_integration.md) | Open-Meteo integration, incl. date-based planning |
@@ -118,8 +128,18 @@ Full rationale (including why external APIs are mocked in tests) in
 ## Known gaps
 
 - No auth UI on the frontend yet (register/login/saved-preferences exist
-  as backend endpoints only) — `TripPreferenceForm` is a local-only preview,
-  and says so.
+  as backend endpoints only).
+- Transportation-cost estimation and total-trip budget allocation (from the
+  progressive flow's product spec) aren't built yet -- the >=1-day path
+  still asks for a max budget/day directly rather than a total trip budget
+  split across lodging/food/activities/transport. See "What's deliberately
+  not built yet" in
+  [`progressive_recommendation_flow.md`](documentation/progressive_recommendation_flow.md).
+- Real-time event listings (concerts, festivals, sporting events) aren't
+  available in local-activity discovery -- OSM has the venues, not the
+  schedule; real event data needs a keyed API (Ticketmaster/Eventbrite).
+- "Use my current GPS location" is present in the UI but disabled --
+  needs the browser's Geolocation API wired up.
 - `npm audit` flags 4 advisories (3 moderate, 1 high) across two dependency
   chains — Vite/esbuild (dev-server-only issues, e.g. path traversal in
   optimized deps handling) and React Router (open redirect / SSR hydration

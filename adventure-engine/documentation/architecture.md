@@ -23,8 +23,8 @@ implementation wasn't built on top of them, for historical context.
 router, request validation via `schemas/`) → `services/*.py` (business
 logic) → `models/*.py` (SQLAlchemy) / external APIs (Open-Meteo's forecast
 and historical-archive endpoints, OSRM, Frankfurter, OpenStreetMap's
-Overpass API — all real, free, no-key-required services; see each feature's
-doc for which ones it calls and why).
+Overpass and Nominatim APIs — all real, free, no-key-required services; see
+each feature's doc for which ones it calls and why).
 
 ## Persistence
 

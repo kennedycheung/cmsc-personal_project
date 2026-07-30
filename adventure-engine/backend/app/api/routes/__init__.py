@@ -3,8 +3,10 @@ from .auth import router as auth_router
 from .deals import router as deals_router
 from .destinations import router as destinations_router
 from .favorites import router as favorites_router
+from .geocode import router as geocode_router
 from .health import router as health_router
 from .itineraries import router as itineraries_router
+from .local_activities import router as local_activities_router
 from .optimizations import router as optimizations_router
 from .preferences import router as preferences_router
 from .recommendations import router as recommendations_router
@@ -22,4 +24,6 @@ __all__ = [
     "saved_adventures_router",
     "favorites_router",
     "optimizations_router",
+    "geocode_router",
+    "local_activities_router",
 ]

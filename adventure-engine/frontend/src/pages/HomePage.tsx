@@ -1,6 +1,5 @@
-import AdventureFinder from '../components/AdventureFinder';
+import AdventureWizard from '../components/AdventureWizard';
 import BudgetCalculator from '../components/BudgetCalculator';
-import TripPreferenceForm from '../components/TripPreferenceForm';
 
 export default function HomePage() {
   return (
@@ -9,14 +8,14 @@ export default function HomePage() {
         <div className='hero__copy'>
           <h1>Adventure Arbitrage Engine</h1>
           <p>
-            Discover better trips with budget planning, destination suggestions, and preference-based recommendations.
+            Start from where you are and how much time you have -- we'll narrow it down to the most memorable
+            adventure you can realistically have.
           </p>
         </div>
       </section>
 
-      <AdventureFinder />
+      <AdventureWizard />
       <BudgetCalculator />
-      <TripPreferenceForm />
     </main>
   );
 }

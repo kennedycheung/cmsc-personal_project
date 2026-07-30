@@ -79,6 +79,56 @@ def test_recommendations_returns_ranked_destinations(client):
     assert "weather" in body[0]["score_breakdown"]
 
 
+def test_recommendations_filtered_by_origin_distance(client):
+    # Banff National Park's own coordinates as origin: a small radius should
+    # only ever include Banff itself (and nothing 1000s of km away).
+    response = client.get(
+        "/api/recommendations/",
+        params={"origin_lat": 51.4968, "origin_lon": -115.9281, "max_distance_km": 5, "top_n": 50},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) >= 1
+    assert all(item["destination"]["name"] == "Banff National Park" for item in body)
+
+
+def test_recommendations_without_origin_is_unfiltered(client):
+    response = client.get("/api/recommendations/", params={"top_n": 50})
+    assert response.status_code == 200
+    assert len(response.json()) > 1
+
+
+def test_recommendations_time_bucket_resolves_distance_server_side(client):
+    # "half_day" resolves to a 15km radius -- from Banff's own coordinates,
+    # that should behave identically to the explicit max_distance_km test.
+    response = client.get(
+        "/api/recommendations/",
+        params={
+            "origin_lat": 51.4968, "origin_lon": -115.9281,
+            "time_bucket": "half_day", "top_n": 50,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) >= 1
+    assert all(item["destination"]["name"] == "Banff National Park" for item in body)
+
+
+def test_recommendations_stay_local_overrides_bucket_distance(client):
+    # "two_weeks" alone is unconstrained, but "stay_local" scope forces a
+    # tight radius regardless of how much time is available.
+    response = client.get(
+        "/api/recommendations/",
+        params={
+            "origin_lat": 51.4968, "origin_lon": -115.9281,
+            "time_bucket": "two_weeks", "travel_scope": "stay_local", "top_n": 50,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert all(item["destination"]["name"] == "Banff National Park" for item in body)
+
+
 def test_itinerary_generation_for_banff(client):
     response = client.get("/api/itineraries/1", params={"days": 2, "interests": "hiking,relaxation"})
     assert response.status_code == 200

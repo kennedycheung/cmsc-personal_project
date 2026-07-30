@@ -67,7 +67,10 @@ historical-archive endpoint by branching on the requested URL.
 
 OSM activity ingestion similarly calls a real API (Overpass) as part of its
 normal operation — `httpx.post` is mocked the same way in
-`test_osm_activities.py`.
+`test_osm_activities.py`. Local-activity discovery
+(`test_local_activities.py`) reuses that same mock, since it calls the same
+underlying `fetch_osm_activities`. Geocoding (`test_geocoding.py`) mocks
+`httpx.get` against Nominatim the same way weather does against Open-Meteo.
 
 Everything else (destinations, activities, auth, favorites, preferences,
 deals, and five of the six backpacker-optimization calculators) is pure
@@ -100,10 +103,12 @@ a separate mirrored test tree.
 ### Coverage and scope
 
 The suite covers `BudgetCalculator` (pure client-side calculation logic),
-`NotFoundPage` (routing), and `AdventureFinder` (loading/error/retry states
-and query-param submission, with the `services/recommendations` module
-mocked via `vi.spyOn` so it exercises the real React Query integration
-without a network dependency).
+`NotFoundPage` (routing), and `AdventureWizard` (step-by-step navigation
+through both the local-adventure and travel-search branches, loading/error
+states, and query-param submission, with `services/geocode`,
+`services/recommendations`, and `services/localActivities` mocked via
+`vi.spyOn` so it exercises the real React Query integration without a
+network dependency).
 
 `AdventureMap` is not covered by an automated test: react-leaflet needs
 real browser layout/canvas behavior that jsdom doesn't provide, and getting
@@ -117,6 +122,6 @@ candidate for Playwright/browser-based testing if that's added later.
 This is a real test suite for the critical paths, not exhaustive coverage.
 Notably untested: the deal connectors' exact placeholder data shapes
 (covered indirectly via the ingestion pipeline tests), and most of the
-frontend's page-level components beyond `AdventureFinder`. If you extend a
+frontend's page-level components beyond `AdventureWizard`. If you extend a
 feature, extend its tests alongside it rather than assuming the existing
 suite already covers it.

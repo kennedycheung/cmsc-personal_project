@@ -28,7 +28,7 @@ npm run test:watch  # Vitest in watch mode
 ## Structure
 
 - `src/pages/` — route-level components (`HomePage`, `DestinationPage`, `NotFoundPage`).
-- `src/components/` — `AdventureFinder`, `AdventureMap`, `BudgetCalculator`, `TripPreferenceForm`.
+- `src/components/` — `AdventureWizard`, `AdventureMap`, `BudgetCalculator`.
 - `src/hooks/` — React Query hooks wrapping the service layer.
 - `src/services/` — typed API client functions (one module per backend resource) plus `routing.ts` for the OSRM walking-route calls.
 - `src/test/setup.ts` — Vitest/Testing Library setup (imported via `vite.config.ts`'s `test.setupFiles`).
@@ -39,8 +39,8 @@ separate test tree — see [`../documentation/testing.md`](../documentation/test
 
 ## Known gap
 
-`TripPreferenceForm` is local-state-only and says so in its UI — the
-backend has real `/api/preferences` and `/api/favorites` endpoints
+`AdventureWizard`'s trip-detail inputs are per-request only, not saved —
+the backend has real `/api/preferences` and `/api/favorites` endpoints
 (see `../documentation/authentication.md`) but there's no login/register UI
 here yet to actually call them with. Wiring that up is a reasonable next
 step, not something silently pretended to work.
