@@ -6,6 +6,7 @@ was manually typed in ahead of time.
 See documentation/osm_activity_ingestion.md for the full write-up.
 """
 
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -26,6 +27,16 @@ REQUEST_HEADERS = {"User-Agent": "adventure-arbitrage-engine/1.0 (portfolio proj
 DEFAULT_RADIUS_KM = 5
 MAX_RESULTS_PER_DESTINATION = 12
 ASSUMED_LOCAL_SPEED_KMH = 25.0  # rough in-city travel speed, same spirit as optimizations/constants.py
+
+# Overpass's free public instance is a shared community resource: bursts of
+# testing/usage from one IP routinely trip its own rate limiting (429) or
+# leave it briefly overloaded (504), even though the query itself is fine
+# (observed repeatedly during development). One retry with a short backoff
+# smooths over exactly that transient case without hammering it further --
+# deliberately not more than one, since aggressive retrying is the opposite
+# of respecting a fair-use limit.
+TRANSIENT_STATUS_CODES = {429, 502, 503, 504}
+RETRY_BACKOFF_SECONDS = 3.0
 
 # OSM tag=value pairs worth surfacing as activities, each mapped to a
 # (group, category, default duration_hours, is_outdoor) tuple. `group` is
@@ -162,21 +173,32 @@ def fetch_osm_activities(
 ) -> list[dict]:
     """Fetch nearby real POIs from Overpass. Raises OsmIngestionError on any
     network/parse failure -- callers should treat this the same way the rest
-    of this app treats a flaky third-party API (skip, don't crash)."""
-    try:
-        # POST, not GET: Overpass's own docs recommend this for anything
-        # beyond a trivial query -- a GET with this much query data in the
-        # URL gets rejected outright (observed 406 Not Acceptable in testing).
-        response = httpx.post(
-            OVERPASS_URL,
-            data={"data": _build_query(latitude, longitude, radius_km, tags or _OSM_TAGS, result_limit)},
-            headers=REQUEST_HEADERS,
-            timeout=REQUEST_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        return response.json()["elements"]
-    except (httpx.HTTPError, KeyError, ValueError) as exc:
-        raise OsmIngestionError(str(exc)) from exc
+    of this app treats a flaky third-party API (skip, don't crash).
+
+    Retries once on a transient failure (429/502/503/504) after a short
+    backoff -- see TRANSIENT_STATUS_CODES above for why just one.
+    """
+    query_data = {"data": _build_query(latitude, longitude, radius_km, tags or _OSM_TAGS, result_limit)}
+
+    for attempt in range(2):
+        try:
+            # POST, not GET: Overpass's own docs recommend this for anything
+            # beyond a trivial query -- a GET with this much query data in
+            # the URL gets rejected outright (observed 406 Not Acceptable).
+            response = httpx.post(
+                OVERPASS_URL, data=query_data, headers=REQUEST_HEADERS, timeout=REQUEST_TIMEOUT_SECONDS
+            )
+            if response.status_code in TRANSIENT_STATUS_CODES and attempt == 0:
+                retry_after = response.headers.get("Retry-After")
+                delay = float(retry_after) if retry_after and retry_after.isdigit() else RETRY_BACKOFF_SECONDS
+                time.sleep(delay)
+                continue
+            response.raise_for_status()
+            return response.json()["elements"]
+        except (httpx.HTTPError, KeyError, ValueError) as exc:
+            raise OsmIngestionError(str(exc)) from exc
+
+    raise OsmIngestionError(f"Overpass still returning {response.status_code} after one retry")
 
 
 def normalize_osm_element_raw(

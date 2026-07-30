@@ -9,8 +9,10 @@ from app.services import osm_activities as osm_module
 
 
 class _FakeResponse:
-    def __init__(self, payload: dict):
+    def __init__(self, payload: dict, status_code: int = 200):
         self._payload = payload
+        self.status_code = status_code
+        self.headers: dict = {}
 
     def raise_for_status(self) -> None:
         return None

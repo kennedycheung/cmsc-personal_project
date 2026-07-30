@@ -109,12 +109,23 @@ destination; omit `destination_id` to run it for every seeded destination
 trigger, not something to script into a tight loop given Overpass's
 fair-use expectations).
 
-## Failure isolation
+## Failure isolation and retry
 
 A failed or timed-out Overpass request for one destination is recorded in
 `errors` and doesn't affect any other destination -- the same
 per-connector failure isolation as the deal pipeline. Overpass's free
 public instance is occasionally slow or briefly rate-limited under load
 (observed both `504 Gateway Timeout` and `429 Too Many Requests` during
-development); this is expected of a shared community resource and the
-pipeline degrades to reporting the error rather than crashing the request.
+development, including specifically while building and testing local
+activity discovery -- heavy testing from one IP is exactly what trips its
+own rate limiting); this is expected of a shared community resource.
+
+`fetch_osm_activities` retries once on a transient failure (429/502/503/504),
+honoring a `Retry-After` header if Overpass sends one, else waiting a fixed
+short backoff (`RETRY_BACKOFF_SECONDS`). Deliberately just once, not more --
+retrying aggressively against a rate limit is counterproductive, and if
+Overpass is still unhappy after one measured retry, that's a real signal to
+back off and surface the failure rather than keep hammering it. During
+sustained heavy load (e.g. a lot of testing in a short window from the same
+IP), even this one retry won't always succeed -- that's an inherent
+limitation of relying on a free shared API, not a bug in the retry logic.

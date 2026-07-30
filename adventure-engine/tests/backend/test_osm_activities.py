@@ -12,6 +12,7 @@ class _FakeResponse:
     def __init__(self, payload: dict, status_code: int = 200):
         self._payload = payload
         self.status_code = status_code
+        self.headers: dict = {}
 
     def raise_for_status(self) -> None:
         if self.status_code >= 400:
@@ -83,3 +84,25 @@ def test_reingesting_osm_activities_is_idempotent(client):
 def test_ingest_osm_activities_missing_destination_404(client):
     response = client.post("/api/activities/ingest-osm", params={"destination_id": 9999})
     assert response.status_code == 404
+
+
+def test_fetch_osm_activities_retries_once_on_transient_failure():
+    responses = [_FakeResponse({}, status_code=429), _FakeResponse(_fake_overpass_payload())]
+    with (
+        patch.object(osm_module.httpx, "post", side_effect=responses),
+        patch.object(osm_module.time, "sleep", return_value=None) as mock_sleep,
+    ):
+        elements = osm_module.fetch_osm_activities(48.8566, 2.3522)
+
+    assert len(elements) == 3
+    mock_sleep.assert_called_once()
+
+
+def test_fetch_osm_activities_gives_up_after_one_retry():
+    responses = [_FakeResponse({}, status_code=429), _FakeResponse({}, status_code=429)]
+    with (
+        patch.object(osm_module.httpx, "post", side_effect=responses),
+        patch.object(osm_module.time, "sleep", return_value=None),
+    ):
+        with pytest.raises(osm_module.OsmIngestionError):
+            osm_module.fetch_osm_activities(48.8566, 2.3522)
