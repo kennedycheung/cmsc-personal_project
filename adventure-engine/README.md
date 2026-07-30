@@ -76,8 +76,8 @@ cd adventure-engine
 docker compose up --build
 ```
 
-See [`documentation/deployment.md`](documentation/deployment.md) — this
-config is written but not yet verified in a real Docker environment.
+See [`documentation/deployment.md`](documentation/deployment.md) for details
+-- this has been verified with a real `docker compose up --build`.
 
 ## Testing
 
@@ -113,9 +113,9 @@ Full rationale (including why external APIs are mocked in tests) in
 - No auth UI on the frontend yet (register/login/saved-preferences exist
   as backend endpoints only) — `TripPreferenceForm` is a local-only preview,
   and says so.
-- Docker config is untested (no Docker available in the environment this
-  was built in).
-- `npm audit` flags two moderate advisories (Vite/esbuild's dev-server-only
-  issue, and a React Router open redirect) where the real fix requires a
-  breaking major-version upgrade on each — deliberately not force-upgraded
+- `npm audit` flags 4 advisories (3 moderate, 1 high) across two dependency
+  chains — Vite/esbuild (dev-server-only issues, e.g. path traversal in
+  optimized deps handling) and React Router (open redirect / SSR hydration
+  issues) — where the real fix requires a breaking major-version upgrade on
+  each (Vite 5→8, React Router 6→7) — deliberately not force-upgraded
   without validating the app still works afterward.

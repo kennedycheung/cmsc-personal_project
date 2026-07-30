@@ -1,15 +1,23 @@
 # Deployment
 
-## Status: Docker config is written but unverified
+## Status: verified with `docker compose up --build`
 
 The [`backend/Dockerfile`](../backend/Dockerfile),
 [`frontend/Dockerfile`](../frontend/Dockerfile), and
 [`docker-compose.yml`](../docker-compose.yml) here follow standard, common
 patterns (a slim Python image running uvicorn; a multi-stage Node build
-served by nginx with an SPA fallback route) but **Docker isn't available in
-the environment these were authored in, so `docker build`/`docker compose
-up` have not actually been run.** Treat this as a solid starting point to
-verify locally, not as a tested deployment path.
+served by nginx with an SPA fallback route). Both images build and run
+successfully end to end: the backend answers `GET /api/health` and serves
+live-scored recommendations, and the frontend is reachable through nginx.
+
+This surfaced one real bug, since it was the first time the build had
+actually been run: `frontend/package-lock.json` was stale relative to
+`package.json`'s `vitest@^4.1.10` range (missing `esbuild@0.28.1` and other
+entries outright), which made `npm ci` fail inside the `node:20-alpine`
+build stage. Fixed by regenerating the lock file against that exact image
+(a plain `npm install` on a different OS/npm version isn't guaranteed to
+produce a lock file `npm ci` accepts under the image's own npm version) --
+see git history for the fix commit.
 
 ## Local Docker Compose
 
