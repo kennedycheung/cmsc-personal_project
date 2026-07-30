@@ -7,10 +7,10 @@ Open-Meteo outage is exactly what makes them straightforward to test this
 way).
 """
 
+from datetime import date, timedelta
 from unittest.mock import patch
 
 import pytest
-
 from app.services import weather as weather_module
 
 
@@ -26,13 +26,37 @@ class _FakeResponse:
 
 
 def _fake_daily_payload(days: int = 14) -> dict:
+    # Dates start from today, matching what a real Open-Meteo forecast call
+    # (always relative to "now") would return -- a fixed hardcoded date range
+    # would silently stop matching real date-based lookups once "today"
+    # moves past it.
+    today = date.today()
     return {
         "daily": {
-            "time": [f"2026-01-{day:02d}" for day in range(1, days + 1)],
+            "time": [(today + timedelta(days=offset)).isoformat() for offset in range(days)],
             "weathercode": [1] * days,
             "temperature_2m_max": [20.0] * days,
             "temperature_2m_min": [10.0] * days,
             "precipitation_probability_max": [10] * days,
+        }
+    }
+
+
+def _fake_archive_payload() -> dict:
+    # A full fake year (fixed reference year, values constant) so the
+    # get_typical_weather_for_dates aggregation finds a (month, day) match
+    # regardless of which future date a test asks about.
+    import datetime as _dt
+
+    start = _dt.date(2019, 1, 1)
+    days = [start + _dt.timedelta(days=i) for i in range(365)]
+    return {
+        "daily": {
+            "time": [d.isoformat() for d in days],
+            "weathercode": [1] * len(days),
+            "temperature_2m_max": [22.0] * len(days),
+            "temperature_2m_min": [12.0] * len(days),
+            "precipitation_sum": [0.5] * len(days),
         }
     }
 
@@ -67,6 +91,35 @@ def test_itinerary_generation_for_banff(client):
 def test_itinerary_missing_destination_404(client):
     response = client.get("/api/itineraries/9999", params={"days": 2})
     assert response.status_code == 404
+
+
+def test_itinerary_with_near_term_start_date_uses_real_forecast(client):
+    near_date = (date.today() + timedelta(days=5)).isoformat()
+    response = client.get("/api/itineraries/1", params={"days": 2, "start_date": near_date})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["days"][0]["weather"]["date"] == near_date
+    assert body["days"][0]["weather"]["is_estimate"] is False
+
+
+def test_itinerary_with_far_future_start_date_uses_typical_estimate(client):
+    weather_module._cache.clear()
+    weather_module._typical_cache.clear()
+    far_date = date.today() + timedelta(days=200)
+
+    def _fake_get(url, params=None, timeout=None):
+        if url == weather_module.ARCHIVE_URL:
+            return _FakeResponse(_fake_archive_payload())
+        return _FakeResponse(_fake_daily_payload())
+
+    with patch.object(weather_module.httpx, "get", side_effect=_fake_get):
+        response = client.get("/api/itineraries/1", params={"days": 2, "start_date": far_date.isoformat()})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["days"][0]["weather"]["is_estimate"] is True
+    assert any("historical-average estimate" in w for w in body["warnings"])
+    weather_module._typical_cache.clear()
 
 
 def test_saved_adventure_lifecycle_and_cross_user_isolation(client, auth_headers):

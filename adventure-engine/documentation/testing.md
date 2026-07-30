@@ -28,6 +28,28 @@ call `db.commit()` — without the savepoint mode, that commit would end the
 outer transaction early and defeat the rollback-based isolation. See
 [`tests/backend/conftest.py`](../tests/backend/conftest.py).
 
+This alone isn't sufficient with SQLite, though: Python's `sqlite3` DBAPI
+driver manages its own implicit transaction boundaries independently of
+SQLAlchemy's explicit `BEGIN`/`SAVEPOINT` control unless that behavior is
+disabled. Without disabling it, the driver silently auto-commits the outer
+transaction out from under SQLAlchemy at some point during a test — meaning
+the *rollback* at teardown has nothing left to undo, and rows written
+during a test silently persist into the next one. This surfaced as a very
+confusing bug during development: adding OSM activity ingestion (the first
+feature to make genuinely fresh multi-row inserts with assertions specific
+enough to notice) caused a test to see data left over from a *different*
+test, even though this exact isolation setup had "worked" for months —
+every existing test happened to either only read data, or write data whose
+effects were invisible to leakage (e.g. re-running the idempotent deal
+pipeline just re-applies the same values whether or not the prior test's
+write was truly rolled back). The real fix is two `event.listens_for`
+hooks on the engine in
+[`backend/app/database/connection.py`](../backend/app/database/connection.py)
+(`isolation_level = None` on connect, plus emitting `BEGIN` explicitly) —
+SQLAlchemy's own documented workaround for pysqlite. It's applied to the
+engine itself (gated to SQLite only), not just in tests, since it's a
+general SQLite transactional-correctness fix, not a test-only concern.
+
 ### Why external APIs are mocked
 
 Recommendations, itineraries, and the currency-arbitrage optimization all
@@ -37,7 +59,15 @@ rate limits on repeated CI runs, so `httpx.get` is mocked at the point each
 service module calls it (`app.services.weather.httpx.get`,
 `app.services.optimizations.currency.httpx.get`) wherever a test exercises
 those code paths — see `test_recommendations_and_itineraries.py` and the
-currency tests in `test_optimizations.py`.
+currency tests in `test_optimizations.py`. The same file also covers
+itineraries planned around a `start_date` (see
+[`weather_integration.md`](weather_integration.md#planning-around-a-specific-date)),
+mocking both Open-Meteo's regular forecast endpoint and its separate
+historical-archive endpoint by branching on the requested URL.
+
+OSM activity ingestion similarly calls a real API (Overpass) as part of its
+normal operation — `httpx.post` is mocked the same way in
+`test_osm_activities.py`.
 
 Everything else (destinations, activities, auth, favorites, preferences,
 deals, and five of the six backpacker-optimization calculators) is pure

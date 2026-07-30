@@ -9,14 +9,20 @@ positioning trips, seasonal and currency arbitrage).
 
 ## Features
 
-- **Destinations & activities** — seeded sample data (14 destinations,
-  ~30 activities) served via a FastAPI + SQLAlchemy backend.
+- **Destinations & activities** — 64 hand-curated destinations (major US
+  cities plus the international destinations Americans most commonly
+  travel to, alongside the original seed set), ~90 activities, served via
+  a FastAPI + SQLAlchemy backend. Supplementable with real, live-sourced
+  activities from OpenStreetMap — see
+  [`documentation/osm_activity_ingestion.md`](documentation/osm_activity_ingestion.md).
 - **Recommendations** ("AdventureScore") — ranks destinations against a
   traveler's budget/interests, factoring in real live weather (Open-Meteo).
   See [`documentation/recommendation_algorithm.md`](documentation/recommendation_algorithm.md).
 - **Itinerary generation** — builds a day-by-day plan from stored
   activities only, weather-aware scheduling (an outdoor hike gets bumped to
-  the clear day, not the rainy one). See
+  the clear day, not the rainy one), optionally planned around a specific
+  future travel date (real forecast within 16 days, a historical-average
+  estimate farther out). See
   [`documentation/itinerary_algorithm.md`](documentation/itinerary_algorithm.md).
 - **Map** — Leaflet + OpenStreetMap tiles, with real walking-route
   polylines from OSRM (falls back to a straight line if that's
@@ -100,7 +106,8 @@ Full rationale (including why external APIs are mocked in tests) in
 | [`architecture.md`](documentation/architecture.md) | Repo layout |
 | [`recommendation_algorithm.md`](documentation/recommendation_algorithm.md) | AdventureScore ranking |
 | [`itinerary_algorithm.md`](documentation/itinerary_algorithm.md) | Day-by-day scheduling |
-| [`weather_integration.md`](documentation/weather_integration.md) | Open-Meteo integration |
+| [`weather_integration.md`](documentation/weather_integration.md) | Open-Meteo integration, incl. date-based planning |
+| [`osm_activity_ingestion.md`](documentation/osm_activity_ingestion.md) | Real, live-sourced activities from OpenStreetMap |
 | [`deal_ingestion_pipeline.md`](documentation/deal_ingestion_pipeline.md) | Airline/hotel/tourism deal connectors |
 | [`authentication.md`](documentation/authentication.md) | JWT auth, saved adventures/preferences/favorites |
 | [`backpacker_optimizations.md`](documentation/backpacker_optimizations.md) | The six arbitrage calculators, math first |

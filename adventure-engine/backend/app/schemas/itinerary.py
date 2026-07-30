@@ -23,6 +23,10 @@ class DayWeather(BaseModel):
     temperature_max: float
     temperature_min: float
     precipitation_probability: float
+    # True when this is a historical-average "typical weather" estimate for
+    # a date too far ahead for a real forecast, rather than an actual
+    # Open-Meteo forecast.
+    is_estimate: bool = False
 
 
 class DayItinerary(BaseModel):
@@ -62,6 +66,7 @@ class ItineraryResponse(BaseModel):
                         temperature_max=day.weather.temperature_max,
                         temperature_min=day.weather.temperature_min,
                         precipitation_probability=day.weather.precipitation_probability,
+                        is_estimate=day.weather.is_estimate,
                     )
                     if day.weather is not None
                     else None,

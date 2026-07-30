@@ -79,3 +79,38 @@ recommendations or itinerary generation:
 Bogus coordinates (e.g. out of range) are handled the same way — Open-Meteo
 returns an error response, which `get_forecast` treats like any other
 failure.
+
+## Planning around a specific date
+
+`GET /api/itineraries/{id}?start_date=2026-09-15` (see
+[`itinerary_algorithm.md`](itinerary_algorithm.md)) needs weather for
+*specific calendar dates*, not just "the next N days from now" — and a real
+forecast simply doesn't exist for a date planned months out. `get_weather_for_dates`
+handles this by routing each requested date down one of two paths:
+
+- **Within the next 16 days** — a real Open-Meteo forecast, exactly as
+  above. `is_estimate=False`.
+- **Farther out (or in the past)** — a historical-average "typical weather"
+  estimate from `get_typical_weather_for_dates`: actual recorded weather
+  (Open-Meteo's separate free [Historical Weather
+  API](https://open-meteo.com/en/docs/historical-weather-api),
+  `archive-api.open-meteo.com`) within a few days of the same calendar date,
+  averaged across each of the last 5 years. `is_estimate=True`, and the
+  condition/temperatures reflect "what this time of year usually looks
+  like" rather than a prediction for that exact date. Precipitation
+  probability here is a genuine empirical statistic (the fraction of
+  sampled days that had measurable rain), arguably more honest than a
+  simulated forecast would be for something this far out.
+
+Batched by design: one archive API call per lookback year covering the
+*whole* requested date span (plus a small buffer), not one call per day —
+so a 14-day itinerary planned a year out costs 5 archive calls total, not
+70. Results are cached for 24 hours (historical climate data doesn't
+change meaningfully faster than that), keyed by `(lat, lon, month, day)` so
+the same calendar day is never re-fetched across different years/requests.
+
+Every `DayForecast` — from any of `get_forecast`, `get_forecasts_batch`, or
+`get_weather_for_dates` — carries `is_estimate`, and the itinerary response
+surfaces it per day so the frontend/API consumer can visibly distinguish a
+real forecast from a climatological guess rather than presenting one as the
+other.

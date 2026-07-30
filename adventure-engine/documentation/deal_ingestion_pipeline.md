@@ -56,7 +56,7 @@ price is present, rather than trusting each source to report it.
 substring match of a seeded destination's `name` against the deal's
 `location` string, falling back to `country` if no name matches. No
 destination match is not an error — most real-world deals won't cleanly
-map onto one of the ~14 seeded destinations, and `destination_id` is
+map onto one of the ~64 seeded destinations, and `destination_id` is
 nullable specifically to allow that.
 
 ## Upsert / idempotency

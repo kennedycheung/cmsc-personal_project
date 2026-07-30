@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Float, ForeignKey, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -11,12 +11,21 @@ if TYPE_CHECKING:
 
 class Activity(Base):
     __tablename__ = "activities"
+    __table_args__ = (UniqueConstraint("source", "external_id", name="uq_activities_source_external_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     destination_id: Mapped[int] = mapped_column(
         ForeignKey("destinations.id"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+
+    # Which ingestion source produced this row, e.g. "osm" -- null for the
+    # hand-curated seed activities. Combined with external_id, this is what
+    # makes re-running OSM ingestion an upsert instead of piling up
+    # duplicates; both null on seed rows never collides since SQL treats
+    # NULL as distinct from NULL in a unique constraint.
+    source: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    external_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     price: Mapped[float] = mapped_column(Float, nullable=False, default=0)

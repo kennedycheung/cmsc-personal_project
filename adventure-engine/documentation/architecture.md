@@ -21,8 +21,9 @@ implementation wasn't built on top of them, for historical context.
 `frontend/src/services/*.ts` (typed fetch wrapper) → `frontend/src/hooks/*`
 (React Query) → component. On the backend: `api/routes/*.py` (FastAPI
 router, request validation via `schemas/`) → `services/*.py` (business
-logic) → `models/*.py` (SQLAlchemy) / external APIs (Open-Meteo, OSRM,
-Frankfurter — all real, free, no-key-required services; see each feature's
+logic) → `models/*.py` (SQLAlchemy) / external APIs (Open-Meteo's forecast
+and historical-archive endpoints, OSRM, Frankfurter, OpenStreetMap's
+Overpass API — all real, free, no-key-required services; see each feature's
 doc for which ones it calls and why).
 
 ## Persistence

@@ -17,7 +17,7 @@ a documented assumption rather than a measured fact:
 | `TIME_VALUE_PER_HOUR_USD` | 8.0 | Nearby airport | A deliberately low figure — backpackers, almost by definition, trade time for money more than average travelers. Override per-call if a different traveler profile is being modeled. |
 | `OVERLAND_COST_PER_KM_USD` | 0.07 | Open-jaw routing | Approximate budget bus/train fare per km (e.g. Southeast Asian and South American budget bus networks). |
 | `OVERLAND_SPEED_KMH` | 50.0 | Open-jaw routing | Average overland speed including stops, borders, and transfers — well below highway speed on purpose. |
-| `OVERLAND_MAX_REASONABLE_KM` | 2500 | Open-jaw routing | Beyond this, "take an overland bus back" stops being realistic (this app's 14 seeded destinations span every continent; not every pair is an overland-connected circuit). The calculator still returns numbers past this threshold, but flags them. |
+| `OVERLAND_MAX_REASONABLE_KM` | 2500 | Open-jaw routing | Beyond this, "take an overland bus back" stops being realistic (this app's 64 seeded destinations span every continent; not every pair is an overland-connected circuit). The calculator still returns numbers past this threshold, but flags them. |
 
 ---
 
@@ -224,10 +224,11 @@ below the static estimate — a positive `ArbitragePercent`, i.e. currently
 cheaper than usual. The reverse holds if the local currency has
 strengthened.
 
-Frankfurter covers ECB-tracked currencies only, which excludes three of our
-14 seeded destinations' local currencies (Morocco/MAD, Argentina/ARS,
-Vietnam/VND) — those destinations report the arbitrage as unavailable
-rather than guessing, the same graceful-degradation pattern used when
+Frankfurter covers ECB-tracked currencies only, which excludes eight of our
+64 seeded destinations' local currencies (Morocco/MAD, Argentina/ARS,
+Vietnam/VND, Dominican Republic/DOP, Bahamas/BSD, Peru/PEN, Costa Rica/CRC,
+UAE/AED) — those destinations report the arbitrage as unavailable rather
+than guessing, the same graceful-degradation pattern used when
 Open-Meteo can't be reached.
 
 **Worked example — Kyoto** (`budget_per_day = 180`, currency JPY):

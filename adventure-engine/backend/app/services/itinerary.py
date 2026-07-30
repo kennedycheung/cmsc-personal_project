@@ -5,14 +5,21 @@ approach and the reasoning behind the default weights and day window.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.activity import Activity
 from app.models.destination import Destination
-from app.services.weather import DayForecast, WeatherUnavailableError, get_forecast, is_bad_weather, is_good_weather
+from app.services.weather import (
+    DayForecast,
+    WeatherUnavailableError,
+    get_forecast,
+    get_weather_for_dates,
+    is_bad_weather,
+    is_good_weather,
+)
 
 DAY_START = time(9, 0)
 DAY_END = time(21, 0)
@@ -117,6 +124,7 @@ def generate_itinerary(
     days: int,
     budget: float | None = None,
     interests: str | None = None,
+    start_date: date | None = None,
 ) -> ItineraryResult:
     destination = db.get(Destination, destination_id)
     if destination is None:
@@ -136,11 +144,25 @@ def generate_itinerary(
     if not activities:
         warnings.append(f"No stored activities exist yet for destination {destination_id}.")
 
-    try:
-        forecast = get_forecast(destination.latitude, destination.longitude, days)
-    except WeatherUnavailableError:
-        forecast = []
-        warnings.append("Weather forecast unavailable; scheduling did not account for weather.")
+    if start_date is not None:
+        # A known travel date: use a real forecast for days within the next
+        # 16 days, and a historical-average "typical weather" estimate for
+        # anything farther out (see weather.get_weather_for_dates).
+        trip_dates = [start_date + timedelta(days=i) for i in range(days)]
+        by_date = get_weather_for_dates(destination.latitude, destination.longitude, trip_dates)
+        forecast = [by_date.get(d.isoformat()) for d in trip_dates]
+        if any(day is None for day in forecast):
+            warnings.append("Weather unavailable for one or more days; scheduling did not account for weather then.")
+        if any(day is not None and day.is_estimate for day in forecast):
+            warnings.append(
+                "Some days are far enough ahead that weather is a historical-average estimate, not a real forecast."
+            )
+    else:
+        try:
+            forecast = get_forecast(destination.latitude, destination.longitude, days)
+        except WeatherUnavailableError:
+            forecast = []
+            warnings.append("Weather forecast unavailable; scheduling did not account for weather.")
 
     # Remaining candidates for the whole trip; each activity can be used once.
     pool = list(activities)

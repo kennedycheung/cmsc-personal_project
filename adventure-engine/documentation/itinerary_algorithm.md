@@ -15,13 +15,23 @@ activities get picked for which day.
 
 ## Inputs
 
-`GET /api/itineraries/{destination_id}?days=3&budget=600&interests=hiking,food`
+`GET /api/itineraries/{destination_id}?days=3&budget=600&interests=hiking,food&start_date=2026-09-15`
 
 - `days` (default 3, 1-14) — trip length.
 - `budget` (optional) — total trip budget across all days, split evenly per
   day (`day_budget = budget / days`). Omit for an unconstrained budget.
 - `interests` (optional, comma-separated) — matched case-insensitively
   against each activity's `category`.
+- `start_date` (optional, `YYYY-MM-DD`) — first day of the trip. Omit to
+  schedule starting today (the original behavior, using a live 1-16 day
+  forecast). With a date supplied, each day of the trip uses a real
+  forecast if it falls within the next 16 days, or a historical-average
+  "typical weather" estimate if it's farther out — see
+  [`weather_integration.md`](weather_integration.md#planning-around-a-specific-date)
+  for how that estimate is built. The response flags this explicitly: each
+  day's `weather.is_estimate` is `true` when it's an estimate rather than a
+  real forecast, and a trip mixing both kinds gets a top-level warning
+  calling that out.
 
 ## Activity data model
 

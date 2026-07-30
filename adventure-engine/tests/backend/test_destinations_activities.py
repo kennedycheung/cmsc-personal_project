@@ -5,11 +5,17 @@ def test_health_check(client):
 
 
 def test_list_destinations_returns_seeded_data(client):
-    response = client.get("/api/destinations/")
+    response = client.get("/api/destinations/?limit=200")
     assert response.status_code == 200
     destinations = response.json()
-    assert len(destinations) == 14
+    assert len(destinations) == 64
     assert all("currency" in d and "latitude" in d for d in destinations)
+
+
+def test_list_destinations_default_page_size(client):
+    response = client.get("/api/destinations/")
+    assert response.status_code == 200
+    assert len(response.json()) == 50
 
 
 def test_get_destination_by_id(client):

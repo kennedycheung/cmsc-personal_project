@@ -16,5 +16,16 @@ class ActivityRead(BaseModel):
     latitude: float
     longitude: float
     is_outdoor: bool
+    # "osm" for activities pulled live from OpenStreetMap; null for the
+    # hand-curated seed activities.
+    source: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class OsmIngestionSummaryRead(BaseModel):
+    inserted: int
+    updated: int
+    skipped_unnamed: int
+    errors: list[str]
+    by_destination: dict[str, int]
