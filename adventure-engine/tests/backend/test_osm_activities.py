@@ -106,3 +106,34 @@ def test_fetch_osm_activities_gives_up_after_one_retry():
     ):
         with pytest.raises(osm_module.OsmIngestionError):
             osm_module.fetch_osm_activities(48.8566, 2.3522)
+
+
+def test_normalize_uses_real_street_address_when_present():
+    element = {
+        "type": "node",
+        "id": 999,
+        "lat": 40.7484,
+        "lon": -73.9857,
+        "tags": {
+            "tourism": "attraction",
+            "name": "Empire State Building",
+            "addr:housenumber": "350",
+            "addr:street": "5th Avenue",
+            "addr:city": "New York",
+            "addr:postcode": "10118",
+        },
+    }
+    normalized = osm_module.normalize_osm_element_raw(element, 40.7128, -74.0060, "New York City")
+    assert normalized["location"] == "350 5th Avenue, New York, 10118"
+
+
+def test_normalize_falls_back_when_no_street_address():
+    element = {
+        "type": "node",
+        "id": 998,
+        "lat": 40.78,
+        "lon": -73.96,
+        "tags": {"leisure": "park", "name": "Some Park"},
+    }
+    normalized = osm_module.normalize_osm_element_raw(element, 40.7128, -74.0060, "New York City")
+    assert normalized["location"] == "New York City"

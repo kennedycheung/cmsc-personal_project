@@ -27,30 +27,55 @@ yourself.
 ## Query
 
 For a destination's coordinates, one Overpass query asks (in a single
-request) for nearby OSM nodes matching any of:
+request) for nearby OSM elements matching any of ~40 tags across seven
+groups -- nature (beaches, lakes, viewpoints, campsites, nature reserves,
+national parks, botanical gardens), food (cafes, bakeries, restaurants,
+food halls, breweries, wineries), culture (museums, galleries, landmarks,
+libraries, places of worship, famous towers, historic sites), entertainment
+(theaters, cinemas, nightlife, escape rooms, arcades, stadiums), shopping
+(antiques, malls, department stores, gift shops, bookstores, markets),
+outdoor recreation (kayak/paddleboard launches, ski pistes, bike rental,
+climbing), and relaxation (spas, hot springs, picnic sites, parks). The
+full current list is `_OSM_TAGS` in `osm_activities.py`.
 
-| OSM tag | Mapped category | Default duration | Outdoor? |
-|---|---|---|---|
-| `tourism=museum` | culture | 2.0h | no |
-| `tourism=gallery` | art | 1.5h | no |
-| `tourism=aquarium` | wildlife | 2.0h | no |
-| `tourism=zoo` | wildlife | 3.0h | yes |
-| `tourism=theme_park` | adventure | 4.0h | yes |
-| `tourism=viewpoint` | scenery | 0.75h | yes |
-| `tourism=attraction` | sightseeing | 1.5h | yes |
-| `leisure=park` | relaxation | 1.5h | yes |
-| `historic=monument` | history | 1.0h | yes |
-| `historic=castle` | history | 1.5h | yes |
-| `historic=ruins` | history | 1.0h | yes |
-| `natural=beach` | relaxation | 2.0h | yes |
+`radius_km` defaults to 12, `MAX_RESULTS_PER_DESTINATION` to 100 -- enough
+to comfortably reach ~100 real activities per destination in most cities;
+a genuinely sparse or remote destination (a national park, a small
+mountain town) will honestly come back with fewer, since that's what's
+actually there.
 
-`radius_km` defaults to 5 -- large enough to cover a city center's worth of
-attractions, small enough that the combined 12-tag query reliably completes
-within Overpass's own query timeout even under load. Sent as a `POST` with
-the query as a form body (Overpass's own docs recommend this over `GET` for
-anything non-trivial; a `GET` with this much query data was observed to be
-flatly rejected with `406 Not Acceptable`) and a descriptive `User-Agent`
-header, per Overpass's usage policy.
+### node vs. nwr, and why it matters for query cost
+
+Most tags query plain OSM **nodes** (single points) -- the cheap case.
+A handful of tags that are commonly mapped as an area rather than a point
+(`leisure=park`, `leisure=nature_reserve`, `leisure=garden`,
+`boundary=national_park`, `natural=water`, `tourism=camp_site`,
+`leisure=stadium`, `shop=mall`) use the pricier **nwr** (node+way+relation)
+selector instead, tracked in `_NWR_TAGS` -- "out center" still gives each
+a usable representative coordinate.
+
+This split exists because of a real bug caught during a full 64-destination
+ingestion run: querying `nwr` for *every* tag (all ~40 of them, over a
+12km radius) made the combined query too expensive for Overpass to fully
+evaluate within its own internal timeout. The request still came back
+`200 OK` -- Overpass just silently returned an empty or truncated result
+once it ran out of time, with no error raised, so a naive read looked like
+"this city has no activities" rather than "the query was too expensive."
+Scoping `nwr` down to only the tags that actually need it (most
+areas-vs-points) fixed it: the same query that returned 0 elements in
+58 seconds returned a full 300-element result in 45 seconds once only 8 of
+the ~40 tags used `nwr`.
+
+The Overpass-side timeout (`[timeout:55]` in `_OVERPASS_QUERY_TEMPLATE`)
+and the client-side `REQUEST_TIMEOUT_SECONDS` (65s, deliberately above the
+query's own timeout plus network overhead) are both sized for this
+heavier, ~40-tag query -- if the tag list grows further, both may need to
+grow too.
+
+Sent as a `POST` with the query as a form body (Overpass's own docs
+recommend this over `GET` for anything non-trivial; a `GET` with this much
+query data was observed to be flatly rejected with `406 Not Acceptable`)
+and a descriptive `User-Agent` header, per Overpass's usage policy.
 
 ## Normalization
 
@@ -69,6 +94,14 @@ holidays) and isn't worth fully implementing here; anything more complex is
 left as "open all day" (`None`/`None`), the same fallback the itinerary
 scheduler already uses for activities with no listed hours, rather than
 attempting to guess wrong.
+
+`location` is a real street address (`"350 5th Avenue, New York, 10118"`)
+built from OSM's `addr:housenumber`/`addr:street`/`addr:city`/`addr:postcode`
+tags (`_build_address`) when the element has them. Many POIs -- especially
+natural features like beaches, viewpoints, and backcountry campsites --
+never get a full address in OSM; for those, the honest fallback is a
+neighborhood/city label (or the destination's own name), not a fabricated
+address standing in for one that doesn't exist.
 
 Elements with no `name` tag are skipped (not presentable as an activity),
 counted in the response's `skipped_unnamed`.
@@ -104,10 +137,13 @@ duplicating them.
 ```
 
 `POST /api/activities/ingest-osm?destination_id=26` limits ingestion to one
-destination; omit `destination_id` to run it for every seeded destination
-(64 individual Overpass queries -- reasonable for an occasional manual
-trigger, not something to script into a tight loop given Overpass's
-fair-use expectations).
+destination; omit `destination_id` to run it for every seeded destination.
+At the current ~40-tag, 100-result-per-destination scope, each destination
+typically takes 25-90 seconds (a full 64-destination run took roughly
+45 minutes end to end during development, including a few destinations
+that hit a transient `504` and needed a later retry) -- reasonable for an
+occasional manual trigger or a background job, not something to script
+into a tight loop given Overpass's fair-use expectations.
 
 ## Failure isolation and retry
 

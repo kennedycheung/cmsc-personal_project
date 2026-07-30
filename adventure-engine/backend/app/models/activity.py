@@ -31,8 +31,11 @@ class Activity(Base):
     price: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     duration_hours: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # Where within the destination this activity happens, e.g. "Old Town Square".
-    location: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    # Where within the destination this activity happens -- a full street
+    # address when OSM ingestion found one (e.g. "350 5th Ave, New York,
+    # 10118"), otherwise a neighborhood/city label for the hand-curated
+    # seed activities (e.g. "Old Town Square").
+    location: Mapped[str | None] = mapped_column(String(250), nullable=True)
 
     # "HH:MM" 24-hour local time. Both null means the activity has no fixed hours
     # (treated as open all day by the itinerary scheduler).

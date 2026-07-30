@@ -19,9 +19,11 @@ currency arbitrage).
   [`documentation/progressive_recommendation_flow.md`](documentation/progressive_recommendation_flow.md).
 - **Destinations & activities** — 64 hand-curated destinations (major US
   cities plus the international destinations Americans most commonly
-  travel to, alongside the original seed set), ~90 activities, served via
-  a FastAPI + SQLAlchemy backend. Supplementable with real, live-sourced
-  activities from OpenStreetMap — see
+  travel to, alongside the original seed set), ~90 hand-curated activities,
+  served via a FastAPI + SQLAlchemy backend. Supplemented with thousands
+  more real, live-sourced activities pulled from OpenStreetMap — real
+  addresses, up to ~100 per destination where that much real data exists
+  — see
   [`documentation/osm_activity_ingestion.md`](documentation/osm_activity_ingestion.md).
 - **Recommendations** ("AdventureScore") — ranks destinations against a
   traveler's budget/interests and (optionally) distance from a starting
@@ -140,6 +142,13 @@ Full rationale (including why external APIs are mocked in tests) in
   schedule; real event data needs a keyed API (Ticketmaster/Eventbrite).
 - "Use my current GPS location" is present in the UI but disabled --
   needs the browser's Geolocation API wired up.
+- 6 of 64 destinations (Los Angeles, Miami, Sydney, Portland, Sedona,
+  Vancouver) still only have their original 1-2 hand-curated activities --
+  their OSM ingestion runs kept hitting Overpass `504`s during the same
+  session that built this feature (very heavy testing load from one IP).
+  Re-running `POST /api/activities/ingest-osm?destination_id=<id>` for each
+  once Overpass's rate limit has cooled off will fill these in; it's
+  idempotent, safe to retry anytime.
 - `npm audit` flags 4 advisories (3 moderate, 1 high) across two dependency
   chains — Vite/esbuild (dev-server-only issues, e.g. path traversal in
   optimized deps handling) and React Router (open redirect / SSR hydration

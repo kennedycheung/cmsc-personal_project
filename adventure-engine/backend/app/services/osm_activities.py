@@ -19,13 +19,13 @@ from app.models.destination import Destination
 from app.services.optimizations.geo import haversine_km
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
-REQUEST_TIMEOUT_SECONDS = 40.0
+REQUEST_TIMEOUT_SECONDS = 65.0  # must exceed the query's internal [timeout:55] plus network overhead
 # Overpass's usage policy asks callers to identify themselves with a
 # descriptive User-Agent; requests without one have been observed to get
 # rejected outright (406) rather than just deprioritized.
 REQUEST_HEADERS = {"User-Agent": "adventure-arbitrage-engine/1.0 (portfolio project)"}
-DEFAULT_RADIUS_KM = 5
-MAX_RESULTS_PER_DESTINATION = 12
+DEFAULT_RADIUS_KM = 12
+MAX_RESULTS_PER_DESTINATION = 100
 ASSUMED_LOCAL_SPEED_KMH = 25.0  # rough in-city travel speed, same spirit as optimizations/constants.py
 
 # Overpass's free public instance is a shared community resource: bursts of
@@ -72,12 +72,13 @@ _OSM_TAGS: dict[tuple[str, str], tuple[str, str, float, bool]] = {
     ("amenity", "food_court"): ("food", "food_hall", 1.0, False),
     ("craft", "brewery"): ("food", "brewery", 1.5, False),
     ("craft", "winery"): ("food", "winery", 1.5, False),
-    ("amenity", "marketplace"): ("food", "market", 1.5, True),
     # Culture
     ("tourism", "museum"): ("culture", "museum", 2.0, False),
     ("tourism", "gallery"): ("culture", "gallery", 1.5, False),
     ("tourism", "attraction"): ("culture", "landmark", 1.5, True),
     ("amenity", "library"): ("culture", "library", 1.0, False),
+    ("amenity", "place_of_worship"): ("culture", "landmark", 0.75, False),
+    ("man_made", "tower"): ("culture", "landmark", 0.5, True),
     ("historic", "monument"): ("culture", "historic_site", 1.0, True),
     ("historic", "castle"): ("culture", "historic_site", 1.5, True),
     ("historic", "ruins"): ("culture", "historic_site", 1.0, True),
@@ -92,7 +93,10 @@ _OSM_TAGS: dict[tuple[str, str], tuple[str, str, float, bool]] = {
     # Shopping
     ("shop", "antiques"): ("shopping", "antiques", 1.0, False),
     ("shop", "mall"): ("shopping", "mall", 2.0, False),
+    ("shop", "department_store"): ("shopping", "department_store", 1.5, False),
+    ("shop", "gift"): ("shopping", "souvenir_shop", 0.5, False),
     ("shop", "books"): ("shopping", "bookstore", 0.75, False),
+    ("amenity", "marketplace"): ("shopping", "market", 1.5, True),
     # Outdoor recreation
     ("leisure", "slipway"): ("outdoor_recreation", "kayak_paddleboard", 2.0, True),
     ("piste:type", "downhill"): ("outdoor_recreation", "skiing", 4.0, True),
@@ -106,12 +110,35 @@ _OSM_TAGS: dict[tuple[str, str], tuple[str, str, float, bool]] = {
 }
 
 _OVERPASS_QUERY_TEMPLATE = """
-[out:json][timeout:30];
+[out:json][timeout:55];
 (
 {clauses}
 );
 out center {limit};
 """
+
+# Tags that are commonly mapped as ways/relations (a park boundary, a lake
+# shoreline, a national park perimeter) rather than a single point, so they
+# need the more expensive "nwr" (node+way+relation) selector to resolve at
+# all. Querying "nwr" for *every* tag was tried first and made the combined
+# query too expensive for Overpass's own timeout to reliably finish on a
+# 12km radius across ~40 tag clauses (observed empty/truncated results,
+# taking 50+ seconds, with no error raised since Overpass still returned a
+# 200). Keeping the rest on the much cheaper plain "node" selector -- true
+# for the large majority of these tags (cafes, shops, museums, viewpoints,
+# etc. are almost always mapped as a single point) -- keeps the query fast
+# without losing the area-feature coverage that motivated "nwr" in the
+# first place.
+_NWR_TAGS: set[tuple[str, str]] = {
+    ("leisure", "park"),
+    ("leisure", "nature_reserve"),
+    ("leisure", "garden"),
+    ("boundary", "national_park"),
+    ("natural", "water"),
+    ("tourism", "camp_site"),
+    ("leisure", "stadium"),
+    ("shop", "mall"),
+}
 
 
 class OsmIngestionError(Exception):
@@ -136,14 +163,34 @@ def _build_query(
 ) -> str:
     radius_m = int(radius_km * 1000)
     around = f"around:{radius_m},{latitude},{longitude}"
-    # nwr (node+way+relation), not just node: area-based features like
-    # parks, nature reserves, and national park boundaries are frequently
-    # tagged on ways/relations with no standalone point -- "out center"
-    # below gives each a representative coordinate either way.
     clauses = "\n".join(
-        f'  nwr["{key}"="{value}"]({around});' for key, value in tags
+        f'  {"nwr" if (key, value) in _NWR_TAGS else "node"}["{key}"="{value}"]({around});'
+        for key, value in tags
     )
     return _OVERPASS_QUERY_TEMPLATE.format(clauses=clauses, limit=result_limit)
+
+
+def _build_address(tags: dict, fallback_location: str) -> str:
+    """Real street address from OSM's addr:* tags when present. Many POIs
+    (especially natural features -- beaches, viewpoints, parks) never get a
+    full address in OSM; falling back to the neighborhood/city/origin label
+    in that case is honest, not a fabricated address standing in for one
+    that doesn't exist.
+    """
+    street = tags.get("addr:street")
+    if not street:
+        return tags.get("addr:suburb") or tags.get("addr:city") or fallback_location
+
+    housenumber = tags.get("addr:housenumber")
+    parts = [f"{housenumber} {street}" if housenumber else street]
+    city = tags.get("addr:city") or tags.get("addr:suburb")
+    if city:
+        parts.append(city)
+    postcode = tags.get("addr:postcode")
+    if postcode:
+        parts.append(postcode)
+    address = ", ".join(parts)
+    return address[:250]
 
 
 def _parse_simple_opening_hours(raw: str | None) -> tuple[str | None, str | None]:
@@ -252,7 +299,7 @@ def normalize_osm_element_raw(
         # isn't always wrong, but it's not verified either.
         "price": 0.0,
         "duration_hours": default_duration,
-        "location": tags.get("addr:suburb") or tags.get("addr:city") or fallback_location,
+        "location": _build_address(tags, fallback_location),
         "opening_time": opening_time,
         "closing_time": closing_time,
         "travel_minutes": travel_minutes,

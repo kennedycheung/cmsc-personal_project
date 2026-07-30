@@ -108,6 +108,12 @@ export default function AdventureMap({ destination, activities, itineraryDays }:
               <strong>{activity.name}</strong>
               <br />
               {activity.category ?? 'Activity'} · {activity.price > 0 ? `$${activity.price}` : 'Free'}
+              {activity.location && (
+                <>
+                  <br />
+                  {activity.location}
+                </>
+              )}
             </Popup>
           </Marker>
         ))}
