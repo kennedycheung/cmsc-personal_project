@@ -1,0 +1,568 @@
+:root {
+  --color-bg: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f8fafc;
+  --color-text: #102a43;
+  --color-text-muted: #64748b;
+  --color-border: #d1d5db;
+  --color-border-subtle: #e2e8f0;
+
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-contrast: #ffffff;
+  --color-header-bg: #1f2937;
+
+  --color-error-bg: #fef2f2;
+  --color-error-text: #991b1b;
+  --color-warning-bg: #fffbeb;
+  --color-warning-text: #92400e;
+
+  --color-chip-bg: #ffffff;
+  --color-chip-border: #cbd5e1;
+  --color-chip-active-bg: #e0efff;
+  --color-chip-active-border: #60a5fa;
+
+  --radius-sm: 14px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 10px 28px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.08);
+
+  --transition-fast: 0.16s ease;
+  --transition-base: 0.24s ease;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* Skip link: visually hidden until keyboard-focused, so keyboard/screen-reader
+   users can jump past the header nav straight to page content. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 1000;
+  padding: 0.85rem 1.25rem;
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  font-weight: 600;
+  border-radius: 0 0 12px 0;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  background: var(--color-header-bg);
+}
+
+.brand {
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 1.25rem;
+  font-weight: 700;
+  transition: opacity var(--transition-fast);
+}
+
+.brand:hover {
+  opacity: 0.85;
+}
+
+.home-page {
+  padding: 3rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.hero {
+  margin-bottom: 2.5rem;
+  padding: 2rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, #eef4ff 0%, #dce7ff 100%);
+  box-shadow: var(--shadow-lg);
+  animation: fade-in-up 0.5s ease both;
+}
+
+.hero__copy h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 1.05;
+}
+
+.hero__copy p {
+  margin: 0.75rem 0;
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--color-text-muted);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.button {
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.95rem 1.5rem;
+  cursor: pointer;
+  transition: transform var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.button:active {
+  transform: translateY(0);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+}
+
+.button--primary {
+  color: var(--color-primary-contrast);
+  background: var(--color-primary);
+}
+
+.button--primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.button--secondary {
+  color: #1f2937;
+  background: #e5e7eb;
+}
+
+.status-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  animation: fade-in 0.3s ease both;
+}
+
+.status-banner--error {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+}
+
+.status-banner--error p {
+  margin: 0;
+}
+
+.spinner {
+  flex-shrink: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid #cbd5e1;
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-card {
+  margin-bottom: 2rem;
+  padding: 1.75rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  animation: fade-in-up 0.4s ease both;
+}
+
+.section-card h2 {
+  margin-top: 0;
+}
+
+.finder-panel,
+.budget-panel,
+.preference-panel {
+  margin-bottom: 2rem;
+}
+
+.finder-panel__intro,
+.budget-panel__intro,
+.preference-panel__intro {
+  margin-bottom: 1rem;
+}
+
+.finder-form,
+.budget-form,
+.preference-form {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.finder-grid,
+.budget-form__grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.budget-summary,
+.finder-results,
+.submission-summary {
+  display: grid;
+  gap: 1rem;
+}
+
+.budget-summary div,
+.submission-summary p {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+
+.finder-actions,
+.form-row--actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+label {
+  display: grid;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+textarea {
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+}
+
+.result-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.result-card {
+  padding: 1.5rem;
+  border-radius: 20px;
+  background: #f8fbff;
+  border: 1px solid var(--color-border-subtle);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  animation: fade-in-up 0.35s ease both;
+}
+
+.result-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Stagger the first several cards' entrance so a results grid animates in
+   as a cascade rather than all at once. */
+.result-grid > .result-card:nth-child(1) { animation-delay: 0.03s; }
+.result-grid > .result-card:nth-child(2) { animation-delay: 0.06s; }
+.result-grid > .result-card:nth-child(3) { animation-delay: 0.09s; }
+.result-grid > .result-card:nth-child(4) { animation-delay: 0.12s; }
+.result-grid > .result-card:nth-child(5) { animation-delay: 0.15s; }
+.result-grid > .result-card:nth-child(6) { animation-delay: 0.18s; }
+.result-grid > .result-card:nth-child(n + 7) { animation-delay: 0.2s; }
+
+.result-card h4 {
+  margin-top: 0;
+}
+
+.chip {
+  border: 1px solid var(--color-chip-border);
+  background: var(--color-chip-bg);
+  border-radius: var(--radius-pill);
+  padding: 0.75rem 1rem;
+  min-height: 44px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.chip:hover {
+  border-color: var(--color-chip-active-border);
+}
+
+.chip:active {
+  transform: scale(0.97);
+}
+
+.chip--active {
+  background: var(--color-chip-active-bg);
+  border-color: var(--color-chip-active-border);
+}
+
+.radio-group {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.radio-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.radio-card:hover {
+  border-color: var(--color-chip-active-border);
+}
+
+.radio-card input {
+  accent-color: var(--color-primary);
+}
+
+.checkbox-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.field-label {
+  font-weight: 700;
+}
+
+.map-container {
+  height: 420px;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.map-legend {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.map-fallback-note {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.adventure-map-pin {
+  background: transparent;
+  border: none;
+}
+
+.map-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
+}
+
+.map-pin--destination {
+  background: var(--color-header-bg);
+  font-size: 1rem;
+}
+
+.map-pin--activity {
+  background: #16a34a;
+}
+
+.map-pin--stop {
+  background: var(--color-primary);
+}
+
+.result-card__link {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.result-card__link:hover {
+  text-decoration: underline;
+}
+
+.itinerary-warning {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.preference-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.not-found {
+  padding: 4rem 2rem;
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* Visible keyboard-focus ring across every interactive element. Browsers'
+   default focus outline is fine functionally, but this keeps it consistent
+   with the rest of the design system and never disappears on click-only
+   navigation thanks to :focus-visible (vs. :focus). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect the OS-level "reduce motion" preference: collapse every
+   animation/transition to effectively instant rather than removing them
+   entirely, so layout driven by animation end-states still resolves. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 1rem 1.25rem;
+  }
+
+  .home-page {
+    padding: 2rem 1.25rem;
+  }
+
+  .hero {
+    padding: 1.5rem;
+  }
+
+  .section-card {
+    padding: 1.25rem;
+  }
+
+  .map-container {
+    height: 320px;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-page {
+    padding: 1.5rem 1rem;
+  }
+
+  .section-card {
+    padding: 1.1rem;
+    border-radius: var(--radius-md);
+  }
+
+  .finder-grid,
+  .budget-form__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .status-banner--error {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .map-container {
+    height: 260px;
+  }
+
+  .finder-actions .button,
+  .form-row--actions .button,
+  .status-banner--error .button {
+    width: 100%;
+  }
+
+  .brand {
+    font-size: 1.05rem;
+  }
+}

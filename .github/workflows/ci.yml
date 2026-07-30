@@ -1,0 +1,64 @@
+name: Adventure Engine CI
+
+# adventure-engine/ is a subdirectory of this repo, not the repo root, so
+# every path below is prefixed accordingly. Scoped to only run when
+# something under adventure-engine/ actually changes, since this repo may
+# contain other unrelated projects.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "adventure-engine/**"
+  pull_request:
+    paths:
+      - "adventure-engine/**"
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: adventure-engine/backend/requirements-dev.txt
+
+      - name: Install backend dependencies
+        working-directory: adventure-engine/backend
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        working-directory: adventure-engine/backend
+        run: ruff check .
+
+      - name: Run backend tests
+        working-directory: adventure-engine
+        run: pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: adventure-engine/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: adventure-engine/frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: adventure-engine/frontend
+        run: npm test
+
+      - name: Build frontend
+        working-directory: adventure-engine/frontend
+        run: npm run build
+        env:
+          VITE_API_URL: http://localhost:8000/api
