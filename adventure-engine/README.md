@@ -140,8 +140,9 @@ Full rationale (including why external APIs are mocked in tests) in
 - Real-time event listings (concerts, festivals, sporting events) aren't
   available in local-activity discovery -- OSM has the venues, not the
   schedule; real event data needs a keyed API (Ticketmaster/Eventbrite).
-- "Use my current GPS location" is present in the UI but disabled --
-  needs the browser's Geolocation API wired up.
+- Starting location is manual text entry (city or airport name) only --
+  "use my current GPS location" isn't in the UI yet, since it needs the
+  browser's Geolocation API wired up on the frontend.
 - 6 of 64 destinations (Los Angeles, Miami, Sydney, Portland, Sedona,
   Vancouver) still only have their original 1-2 hand-curated activities --
   their OSM ingestion runs kept hitting Overpass `504`s during the same

@@ -41,9 +41,11 @@ same spirit as Overpass's usage policy already respected by
 `osm_activities.py`). Results are cached for an hour -- a place's
 coordinates don't change.
 
-"Use my current GPS location" is present in the UI but disabled/labeled
-"coming soon" -- a real implementation needs the browser's Geolocation API
-wired up on the frontend, deliberately out of scope for this pass.
+"Use my current GPS location" isn't in the UI -- just the manual city/
+airport text entry. A real implementation needs the browser's Geolocation
+API wired up on the frontend, deliberately out of scope for this pass; a
+disabled placeholder button was tried first and removed since a
+non-functional control is worse than no control.
 
 ## Step 2: available time
 

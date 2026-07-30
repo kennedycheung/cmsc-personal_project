@@ -199,9 +199,6 @@ export default function AdventureWizard() {
               />
             </label>
           </div>
-          <button className='button button--secondary' type='button' disabled title='Coming soon'>
-            Use my current location
-          </button>
 
           {isGeocoding && (
             <div className='status-banner status-banner--loading' role='status' aria-live='polite'>
