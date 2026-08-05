@@ -9,7 +9,26 @@ This project is structured as a full-stack application with separate frontend an
 - `documentation/` — one doc per feature area (see the index in the root `README.md`), plus this file.
 
 All recommendation scoring, itinerary scheduling, deal ingestion, and
-weather/currency integration logic lives in `backend/app/services/`. Earlier
+weather/currency integration logic lives in `backend/app/services/`. Three
+distinct recommendation paths coexist by design, not by accident, each with
+a different data/cost tradeoff:
+
+- `services/recommendation.py` — ranks the 64 hand-curated seeded
+  `Destination` rows (AdventureScore). See `recommendation_algorithm.md`.
+- `services/adventure_engine/` — needs **zero** paid/keyed APIs (OSM/
+  Nominatim/Overpass + free Open-Meteo weather only); discovers real nearby
+  activities, clusters them into coherent "adventures," scores them with
+  independent reusable factors, and explains *why* each one ranked highly.
+  See `adventure_recommendation_engine.md`.
+- `services/discovery/` — optional, paid (SerpAPI key), aggregates Google/
+  TripAdvisor/Yelp for far richer coverage (ratings, reviews, hours,
+  events) when that tradeoff is worth it. See `activity_discovery_engine.md`.
+
+`services/adventure_engine/providers.py` defines clean, currently-
+unimplemented `Protocol` interfaces (`FlightProvider`, `HotelProvider`,
+`TransitProvider`, `EventProvider`, `RestaurantProvider`) so a future keyed
+integration is a new registry entry, not a rewrite of the engine around it.
+Earlier
 scaffold placeholders (`data/`, `algorithms/`, `scrapers/`,
 `api_connections/`, plus a broken `backend/app/services/ingest.py`) predated
 the real implementation, were never imported by the running app, and have

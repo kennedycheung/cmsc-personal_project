@@ -11,6 +11,16 @@ currency arbitrage).
 
 ## Features
 
+- **Adventure recommendation engine** — needs zero paid/keyed APIs (OSM/
+  Nominatim/Overpass + free Open-Meteo only): discovers real nearby
+  activities, clusters them into coherent "adventures" instead of
+  unrelated places, scores each with 8 independent reusable factors
+  (distance, density, diversity, walkability, interest match, weather,
+  confidence, and an honestly-neutral budget factor since OSM has no real
+  pricing), and explains *why* in real template-generated reasoning text —
+  plus a named-time-slot itinerary (morning through evening) for the
+  winning cluster. See
+  [`documentation/adventure_recommendation_engine.md`](documentation/adventure_recommendation_engine.md).
 - **Progressive recommendation flow** — starts from "where are you
   starting from?" and "how much time do you have?" rather than budget
   first; branches into a live local-activity search (real nearby places
@@ -135,6 +145,7 @@ Full rationale (including why external APIs are mocked in tests) in
 | Doc | Covers |
 |---|---|
 | [`architecture.md`](documentation/architecture.md) | Repo layout |
+| [`adventure_recommendation_engine.md`](documentation/adventure_recommendation_engine.md) | Zero-key OSM clustering/scoring/reasoning recommendation engine |
 | [`progressive_recommendation_flow.md`](documentation/progressive_recommendation_flow.md) | Origin/time/branch wizard, live local-activity discovery |
 | [`recommendation_algorithm.md`](documentation/recommendation_algorithm.md) | AdventureScore ranking |
 | [`itinerary_algorithm.md`](documentation/itinerary_algorithm.md) | Day-by-day scheduling |

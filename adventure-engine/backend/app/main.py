@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     activities_router,
+    adventures_router,
     auth_router,
     deals_router,
     destinations_router,
@@ -59,6 +60,7 @@ app.include_router(optimizations_router, prefix='/api')
 app.include_router(geocode_router, prefix='/api')
 app.include_router(local_activities_router, prefix='/api')
 app.include_router(discovery_router, prefix='/api')
+app.include_router(adventures_router, prefix='/api')
 
 @app.get('/')
 def root():

@@ -1,4 +1,5 @@
 from .activities import router as activities_router
+from .adventures import router as adventures_router
 from .auth import router as auth_router
 from .deals import router as deals_router
 from .destinations import router as destinations_router
@@ -17,6 +18,7 @@ __all__ = [
     "health_router",
     "destinations_router",
     "activities_router",
+    "adventures_router",
     "recommendations_router",
     "itineraries_router",
     "deals_router",
