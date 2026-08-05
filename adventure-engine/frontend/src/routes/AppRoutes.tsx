@@ -2,6 +2,7 @@ import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import HomePage from '../pages/HomePage';
 import DestinationPage from '../pages/DestinationPage';
 import DiscoverPage from '../pages/DiscoverPage';
+import AdventuresPage from '../pages/AdventuresPage';
 import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
 import NotFoundPage from '../pages/NotFoundPage';
@@ -46,6 +47,7 @@ export default function AppRoutes() {
       <header className='app-header'>
         <Link to='/' className='brand'>Adventure Arbitrage Engine</Link>
         <nav className='app-nav'>
+          <Link to='/adventures'>Adventures</Link>
           <Link to='/discover'>Discover</Link>
           <AuthNav />
         </nav>
@@ -53,6 +55,7 @@ export default function AppRoutes() {
       <Routes>
         <Route path='/' element={<HomePage />} />
         <Route path='/destinations/:id' element={<DestinationPage />} />
+        <Route path='/adventures' element={<AdventuresPage />} />
         <Route path='/discover' element={<DiscoverPage />} />
         <Route path='/login' element={<LoginPage />} />
         <Route path='/register' element={<RegisterPage />} />

@@ -109,3 +109,57 @@ export interface DiscoveryResponse {
   route: DiscoveryRoute | null;
   warnings: string[];
 }
+
+export interface OsmLocalActivity {
+  name: string;
+  description: string | null;
+  group: string;
+  category: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  distance_km: number;
+  duration_hours: number;
+  is_outdoor: boolean;
+  opening_time: string | null;
+  closing_time: string | null;
+}
+
+export interface AdventureScoreReason {
+  factor: string;
+  score: number;
+  weight: number;
+  reason: string;
+}
+
+export interface AdventureItinerarySlot {
+  slot: string;
+  activity: OsmLocalActivity;
+  start_time: string;
+  end_time: string;
+  walking_minutes_from_previous: number | null;
+}
+
+export interface AdventureItinerary {
+  slots: AdventureItinerarySlot[];
+  optional_activities: OsmLocalActivity[];
+  total_walking_minutes: number;
+  warnings: string[];
+}
+
+export interface AdventureRecommendation {
+  location_label: string;
+  latitude: number;
+  longitude: number;
+  total_score: number;
+  confidence: number;
+  reasons: AdventureScoreReason[];
+  summary: string;
+  activities: OsmLocalActivity[];
+  itinerary: AdventureItinerary | null;
+}
+
+export interface AdventureRecommendationResponse {
+  recommendations: AdventureRecommendation[];
+  warnings: string[];
+}
