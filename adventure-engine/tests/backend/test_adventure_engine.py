@@ -204,6 +204,52 @@ def test_all_placeholder_providers_raise_unavailable():
         PROVIDERS["restaurants"].search_restaurants(41.0, -87.0)
 
 
+# --- edge cases: empty results / upstream failures ------------------------------
+
+
+def test_recommend_adventures_handles_empty_discovery_gracefully():
+    with patch(
+        "app.services.adventure_engine.engine.discover_local_activities",
+        return_value={group: [] for group in ["nature", "food", "culture", "entertainment", "shopping", "outdoor_recreation", "relaxation"]},
+    ):
+        request = AdventureRequest(latitude=0.0, longitude=0.0, location_label="Middle of the Ocean")
+        recommendations, warnings = recommend_adventures(request)
+
+    assert recommendations == []
+    assert warnings == ["No nearby activities found for this location and radius."]
+
+
+def test_recommend_adventures_handles_overpass_failure_gracefully():
+    from app.services.local_activities import LocalActivityDiscoveryError
+
+    with patch(
+        "app.services.adventure_engine.engine.discover_local_activities",
+        side_effect=LocalActivityDiscoveryError("504 Gateway Timeout"),
+    ):
+        request = _sample_request()
+        recommendations, warnings = recommend_adventures(request)
+
+    assert recommendations == []
+    assert len(warnings) == 1
+    assert "Could not reach OpenStreetMap" in warnings[0]
+
+
+def test_recommend_endpoint_handles_empty_discovery(client):
+    with patch(
+        "app.services.adventure_engine.engine.discover_local_activities",
+        return_value={"nature": []},
+    ):
+        response = client.post(
+            "/api/adventures/recommend",
+            json={"latitude": 0.0, "longitude": 0.0, "location_label": "Nowhere"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["recommendations"] == []
+    assert len(body["warnings"]) == 1
+
+
 # --- full engine / endpoint --------------------------------------------------------
 
 
