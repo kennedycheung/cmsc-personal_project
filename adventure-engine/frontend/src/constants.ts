@@ -45,6 +45,26 @@ export const TRAVEL_SCOPES: TravelScopeOption[] = [
   { value: 'anywhere_within_budget', label: 'Anywhere within my budget', description: 'No distance limit' },
 ];
 
+// Mirrors the backend's INTEREST_CATEGORIES exactly
+// (app/services/discovery/interests.py) -- the Activity Discovery Engine's
+// own interest vocabulary, distinct from AVAILABLE_INTERESTS above.
+export const DISCOVERY_INTERESTS = [
+  'food',
+  'museums',
+  'nature',
+  'shopping',
+  'architecture',
+  'nightlife',
+  'festivals',
+  'hidden_gems',
+  'family',
+  'adventure',
+  'photography',
+  'luxury',
+  'budget',
+  'history',
+];
+
 export const LOCAL_ACTIVITY_GROUPS: TimeBucketOption[] = [
   { value: 'nature', label: 'Nature' },
   { value: 'food', label: 'Food' },

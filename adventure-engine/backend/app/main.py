@@ -8,6 +8,7 @@ from app.api.routes import (
     auth_router,
     deals_router,
     destinations_router,
+    discovery_router,
     favorites_router,
     geocode_router,
     health_router,
@@ -57,6 +58,7 @@ app.include_router(favorites_router, prefix='/api')
 app.include_router(optimizations_router, prefix='/api')
 app.include_router(geocode_router, prefix='/api')
 app.include_router(local_activities_router, prefix='/api')
+app.include_router(discovery_router, prefix='/api')
 
 @app.get('/')
 def root():

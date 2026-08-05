@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 24  # 24 hours
     cors_origins: list[str] = ['http://localhost:5173', 'http://127.0.0.1:5173']
 
+    # SerpAPI is a paid, keyed service (unlike every other external API this
+    # app uses) -- see documentation/activity_discovery_engine.md. Empty by
+    # default; the discovery endpoint returns a clear 503 rather than making
+    # doomed billed requests when this isn't set.
+    serpapi_key: str = ''
+
     # case_sensitive=False (the pydantic-settings default) so the documented
     # DATABASE_URL / SECRET_KEY env vars actually match these lowercase field
     # names. True here previously meant only an exact-case "database_url" env
