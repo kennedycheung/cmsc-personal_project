@@ -71,6 +71,27 @@ class SeasonalArbitrageRead(BaseModel):
     savings_vs_current: float
 
 
+class TransportationCostRead(BaseModel):
+    distance_km: float
+    mode: str
+    travelers: int
+    total_cost: float
+    cost_per_person: float
+
+
+class BudgetAllocationRead(BaseModel):
+    total_budget: float
+    transportation_cost: float
+    remaining_budget: float
+    lodging: float
+    food: float
+    activities: float
+    local_transport: float
+    contingency: float
+    effective_daily_budget_per_person: float
+    insufficient: bool
+
+
 class CurrencyArbitrageRead(BaseModel):
     destination: DestinationRead
     home_currency: str

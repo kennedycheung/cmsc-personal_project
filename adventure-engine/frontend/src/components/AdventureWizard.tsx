@@ -12,6 +12,7 @@ import { useGeocode } from '../hooks/useGeocode';
 import { useLocalActivities } from '../hooks/useLocalActivities';
 import { useRecommendations } from '../hooks/useRecommendations';
 import { ApiError } from '../services/api';
+import type { GeocodeResult } from '../services/geocode';
 import type { LocalActivitiesParams } from '../services/localActivities';
 import type { RecommendationParams } from '../services/recommendations';
 
@@ -57,17 +58,56 @@ export default function AdventureWizard() {
   const [originInput, setOriginInput] = useState('');
   const [originQuery, setOriginQuery] = useState<string | null>(null);
   const {
-    data: origin,
+    data: geocodedOrigin,
     isFetching: isGeocoding,
     isError: isGeocodeError,
     error: geocodeError,
   } = useGeocode(originQuery ?? '', originQuery !== null);
+
+  // "Use my current location" bypasses geocoding entirely (we already have
+  // coordinates from the browser) -- whichever of the two resolved most
+  // recently wins, since submitting one clears the other (see
+  // handleOriginSubmit/handleUseCurrentLocation).
+  const [gpsOrigin, setGpsOrigin] = useState<GeocodeResult | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const origin = geocodedOrigin ?? gpsOrigin;
 
   useEffect(() => {
     if (origin && step === 'origin') {
       setStep('time');
     }
   }, [origin, step]);
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by this browser.');
+      return;
+    }
+    setLocationError(null);
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setOriginQuery(null);
+        setGpsOrigin({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          label: 'Your current location',
+          country: null,
+        });
+        setIsLocating(false);
+      },
+      (error) => {
+        setIsLocating(false);
+        setLocationError(
+          error.code === error.PERMISSION_DENIED
+            ? 'Location access was denied. You can still type a city or airport above.'
+            : 'Could not determine your location. You can still type a city or airport above.',
+        );
+      },
+      { enableHighAccuracy: false, timeout: 10_000 },
+    );
+  };
 
   // Step 2: available time
   const [timeBucket, setTimeBucket] = useState<string | null>(null);
@@ -108,6 +148,7 @@ export default function AdventureWizard() {
   const handleOriginSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (originInput.trim().length === 0) return;
+    setGpsOrigin(null);
     setOriginQuery(originInput.trim());
   };
 
@@ -163,6 +204,8 @@ export default function AdventureWizard() {
     setStep('origin');
     setOriginInput('');
     setOriginQuery(null);
+    setGpsOrigin(null);
+    setLocationError(null);
     setTimeBucket(null);
     setTravelScope(null);
     setBudgetInput('');
@@ -199,6 +242,23 @@ export default function AdventureWizard() {
               />
             </label>
           </div>
+
+          <div className='wizard-gps'>
+            <button
+              type='button'
+              className='button button--secondary'
+              onClick={handleUseCurrentLocation}
+              disabled={isLocating}
+            >
+              {isLocating ? 'Locating…' : 'Use my current location'}
+            </button>
+          </div>
+
+          {locationError && (
+            <div className='status-banner status-banner--error' role='alert'>
+              <p>{locationError}</p>
+            </div>
+          )}
 
           {isGeocoding && (
             <div className='status-banner status-banner--loading' role='status' aria-live='polite'>

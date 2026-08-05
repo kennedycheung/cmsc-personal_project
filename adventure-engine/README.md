@@ -31,25 +31,45 @@ currency arbitrage).
   [`documentation/recommendation_algorithm.md`](documentation/recommendation_algorithm.md).
 - **Itinerary generation** — builds a day-by-day plan from stored
   activities only, weather-aware scheduling (an outdoor hike gets bumped to
-  the clear day, not the rainy one), optionally planned around a specific
-  future travel date (real forecast within 16 days, a historical-average
-  estimate farther out). See
+  the clear day, not the rainy one), time-of-day-aware (cafes lean morning,
+  nightlife leans late-night), favoring variety over stacking the same
+  category and softly clustering same-neighborhood stops, multi-tag interest
+  matching (partial overlaps score, not just one exact category), optionally
+  planned around a specific future travel date (real forecast within 16
+  days, a historical-average estimate farther out). See
   [`documentation/itinerary_algorithm.md`](documentation/itinerary_algorithm.md).
 - **Map** — Leaflet + OpenStreetMap tiles, with real walking-route
   polylines from OSRM (falls back to a straight line if that's
-  unavailable). No Google Maps anywhere.
+  unavailable), hidden-by-default activity markers once an itinerary
+  exists (with a toggle to reveal them), and click-to-select syncing
+  between the map and the activity/itinerary lists. No Google Maps
+  anywhere.
+- **Interactive itinerary editing** — drag-to-reorder, remove, swap for a
+  tag-ranked alternative, or regenerate just one day, all client-side until
+  saved; real OSRM travel time recalculated after a reorder. See
+  [`documentation/itinerary_editing.md`](documentation/itinerary_editing.md).
 - **Deal ingestion pipeline** — airline/hotel/tourism connectors
   (placeholder data — no free public API exists for any of these),
   normalized and matched to destinations. See
   [`documentation/deal_ingestion_pipeline.md`](documentation/deal_ingestion_pipeline.md).
-- **Auth & saved data** — JWT register/login, saved adventures (itinerary
+- **Auth & saved data** — JWT register/login (now with a frontend login/
+  register UI, not just backend endpoints), saved adventures (itinerary
   snapshots), saved preferences, favorite destinations. See
   [`documentation/authentication.md`](documentation/authentication.md).
-- **Backpacker optimizations** — six cost/time calculators, each with a
-  worked mathematical explanation before its implementation. Currency
-  arbitrage uses a real live API (Frankfurter/ECB rates); the rest are
-  local math over curated/seeded data. See
+- **Backpacker optimizations** — eight cost/time calculators, each with a
+  worked mathematical explanation before its implementation, including
+  origin→destination transportation cost estimation and total-trip budget
+  allocation. Currency arbitrage uses a real live API (Frankfurter/ECB
+  rates); the rest are local math over curated/seeded data. See
   [`documentation/backpacker_optimizations.md`](documentation/backpacker_optimizations.md).
+- **Activity Discovery Engine** — aggregates real search results across 9
+  SerpAPI engines (Google Events/Maps/Directions, TripAdvisor + Place +
+  Reviews, Yelp + Place + Reviews), fuzzy-deduplicates near-duplicate
+  attractions, enriches and ranks them, and groups the result into 7 named
+  recommendation buckets (Best Overall, Best Value, Best Hidden Gem, Best
+  Family, Best Evening, Best Rainy Day, Best Free) plus a chained route.
+  The first paid/keyed integration in this app — needs a `SERPAPI_KEY`. See
+  [`documentation/activity_discovery_engine.md`](documentation/activity_discovery_engine.md).
 
 ## Structure
 
@@ -118,38 +138,53 @@ Full rationale (including why external APIs are mocked in tests) in
 | [`progressive_recommendation_flow.md`](documentation/progressive_recommendation_flow.md) | Origin/time/branch wizard, live local-activity discovery |
 | [`recommendation_algorithm.md`](documentation/recommendation_algorithm.md) | AdventureScore ranking |
 | [`itinerary_algorithm.md`](documentation/itinerary_algorithm.md) | Day-by-day scheduling |
+| [`itinerary_editing.md`](documentation/itinerary_editing.md) | Map selection UX and interactive itinerary editing |
 | [`weather_integration.md`](documentation/weather_integration.md) | Open-Meteo integration, incl. date-based planning |
 | [`osm_activity_ingestion.md`](documentation/osm_activity_ingestion.md) | Real, live-sourced activities from OpenStreetMap |
 | [`deal_ingestion_pipeline.md`](documentation/deal_ingestion_pipeline.md) | Airline/hotel/tourism deal connectors |
 | [`authentication.md`](documentation/authentication.md) | JWT auth, saved adventures/preferences/favorites |
-| [`backpacker_optimizations.md`](documentation/backpacker_optimizations.md) | The six arbitrage calculators, math first |
+| [`backpacker_optimizations.md`](documentation/backpacker_optimizations.md) | The eight arbitrage calculators, math first |
+| [`activity_discovery_engine.md`](documentation/activity_discovery_engine.md) | Multi-engine SerpAPI aggregation, fuzzy dedup, ranking, recommendation buckets |
 | [`testing.md`](documentation/testing.md) | How and why the test suite is structured the way it is |
 | [`deployment.md`](documentation/deployment.md) | Docker, env vars, Postgres migration path |
 | [`development_notes.md`](documentation/development_notes.md) | Short-form dev conventions |
 
 ## Known gaps
 
-- No auth UI on the frontend yet (register/login/saved-preferences exist
-  as backend endpoints only).
-- Transportation-cost estimation and total-trip budget allocation (from the
-  progressive flow's product spec) aren't built yet -- the >=1-day path
-  still asks for a max budget/day directly rather than a total trip budget
-  split across lodging/food/activities/transport. See "What's deliberately
-  not built yet" in
-  [`progressive_recommendation_flow.md`](documentation/progressive_recommendation_flow.md).
+- Transportation-cost estimation and total-trip budget allocation now exist
+  as standalone calculators (`backpacker_optimizations.md` §7-8), but
+  aren't wired into `recommendation.py`'s core `AdventureScore` ranking
+  yet -- the >=1-day path still asks for a max budget/day directly rather
+  than deriving an effective per-day budget from a total trip budget minus
+  transportation. That wiring needs a per-candidate-destination effective
+  budget (each destination is a different distance from the origin), which
+  is a bigger change to the ranking loop than adding the calculators
+  themselves was.
 - Real-time event listings (concerts, festivals, sporting events) aren't
   available in local-activity discovery -- OSM has the venues, not the
   schedule; real event data needs a keyed API (Ticketmaster/Eventbrite).
-- Starting location is manual text entry (city or airport name) only --
-  "use my current GPS location" isn't in the UI yet, since it needs the
-  browser's Geolocation API wired up on the frontend.
-- 6 of 64 destinations (Los Angeles, Miami, Sydney, Portland, Sedona,
-  Vancouver) still only have their original 1-2 hand-curated activities --
-  their OSM ingestion runs kept hitting Overpass `504`s during the same
-  session that built this feature (very heavy testing load from one IP).
+- A handful of destinations (Sedona, Kyoto, Queenstown, Bali, Patagonia, San
+  Francisco, Miami, New Orleans, Nashville, Honolulu, and a couple others)
+  still have thinner OSM activity coverage than the rest -- their ingestion
+  runs kept hitting Overpass `429`/`504`s from repeated heavy testing
+  against one IP during the sessions that built this feature (most of the
+  64 seeded destinations now have close to the ~100-per-city cap).
   Re-running `POST /api/activities/ingest-osm?destination_id=<id>` for each
   once Overpass's rate limit has cooled off will fill these in; it's
   idempotent, safe to retry anytime.
+- The Activity Discovery Engine (`POST /api/discover`) now has a frontend
+  page (`/discover`) and has been live-tested against a real SerpAPI key
+  (see `activity_discovery_engine.md`'s "Real response shapes" section for
+  what that live test caught and fixed). `tripadvisor_place` enrichment
+  specifically is still unverified -- it timed out on every live attempt.
+  Every automated test still mocks the HTTP layer, same as this app's other
+  external-API tests.
+- `neighborhood` (used to softly cluster an itinerary day's stops) is
+  best-effort, not exhaustive: it's populated from OSM's `addr:suburb` tag,
+  which many points of interest simply don't have, and from hand-curated
+  seed activities' existing `location` label as a stand-in. Missing
+  neighborhoods just skip the clustering bonus for that activity rather than
+  being treated as an error.
 - `npm audit` flags 4 advisories (3 moderate, 1 high) across two dependency
   chains — Vite/esbuild (dev-server-only issues, e.g. path traversal in
   optimized deps handling) and React Router (open redirect / SSR hydration

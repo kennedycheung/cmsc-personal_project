@@ -98,6 +98,72 @@ def test_seasonal_arbitrage_rejects_invalid_month(client):
     assert response.status_code == 422
 
 
+def test_transportation_cost_short_distance_uses_overland(client):
+    # Calgary is ~110km from Banff National Park (destination 1) -- well
+    # under the 500km flight threshold.
+    response = client.get(
+        "/api/optimizations/transportation-cost/1",
+        params={"origin_lat": 51.0447, "origin_lon": -114.0719, "travelers": 2},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mode"] == "overland"
+    assert body["distance_km"] < 500
+    assert body["travelers"] == 2
+    # 2 travelers fit in one vehicle (capacity 4), so cost is shared, not doubled.
+    assert body["cost_per_person"] == pytest.approx(body["total_cost"] / 2)
+
+
+def test_transportation_cost_long_distance_uses_flight_priced_per_person(client):
+    # Tokyo is thousands of km from Banff -- past the flight threshold.
+    response = client.get(
+        "/api/optimizations/transportation-cost/1",
+        params={"origin_lat": 35.6762, "origin_lon": 139.6503, "travelers": 3},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mode"] == "flight"
+    assert body["distance_km"] > 500
+    # Flights aren't shareable -- total cost scales linearly with travelers
+    # (allow a cent of slack: total_cost and cost_per_person are each
+    # independently rounded to 2dp).
+    assert body["total_cost"] == pytest.approx(body["cost_per_person"] * 3, abs=0.05)
+
+
+def test_transportation_cost_missing_destination_404(client):
+    response = client.get(
+        "/api/optimizations/transportation-cost/9999", params={"origin_lat": 0, "origin_lon": 0}
+    )
+    assert response.status_code == 404
+
+
+def test_budget_allocation_splits_remaining_after_transportation(client):
+    response = client.get(
+        "/api/optimizations/budget-allocation",
+        params={"total_budget": 2000, "transportation_cost": 500, "days": 5, "travelers": 2},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["remaining_budget"] == pytest.approx(1500.0)
+    assert body["lodging"] == pytest.approx(525.0)  # 1500 * 0.35
+    assert body["food"] == pytest.approx(375.0)  # 1500 * 0.25
+    assert body["insufficient"] is False
+    # 1500 remaining / (5 days * 2 travelers) = 150/person/day
+    assert body["effective_daily_budget_per_person"] == pytest.approx(150.0)
+
+
+def test_budget_allocation_flags_insufficient_budget(client):
+    response = client.get(
+        "/api/optimizations/budget-allocation",
+        params={"total_budget": 300, "transportation_cost": 500, "days": 3, "travelers": 1},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["insufficient"] is True
+    assert body["remaining_budget"] == 0.0
+    assert body["lodging"] == 0.0
+
+
 class _FakeRatesResponse:
     def __init__(self, rates: dict[str, float]):
         self._rates = rates

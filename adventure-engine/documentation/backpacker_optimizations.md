@@ -1,12 +1,20 @@
 # Backpacker Optimization Features
 
-Six cost/time optimization calculators aimed at budget travelers, each
+Eight cost/time optimization calculators aimed at budget travelers, each
 explained mathematically here before its implementation in
-`backend/app/services/optimizations/`. All six follow the same shape: take
+`backend/app/services/optimizations/`. All eight follow the same shape: take
 real data already in this system (destination coordinates, budget_per_day,
 curated reference data) plus a small number of documented assumptions, and
 produce a **savings figure with a visible breakdown** — never just a single
-opaque number.
+opaque number. The last two (transportation cost, budget allocation) were
+added as a follow-up to the progressive recommendation flow (see
+[`progressive_recommendation_flow.md`](progressive_recommendation_flow.md)'s
+"what's deliberately not built yet" section) — they're standalone
+calculators here, like the other six, rather than wired into
+`recommendation.py`'s core `AdventureScore` loop, which would need a
+per-candidate-destination effective budget (each destination is a different
+distance from the origin) rather than one shared value across the ranking
+pass. That wiring is still a reasonable future step, not done in this pass.
 
 Shared constants (`backend/app/services/optimizations/constants.py`), each
 a documented assumption rather than a measured fact:
@@ -18,6 +26,10 @@ a documented assumption rather than a measured fact:
 | `OVERLAND_COST_PER_KM_USD` | 0.07 | Open-jaw routing | Approximate budget bus/train fare per km (e.g. Southeast Asian and South American budget bus networks). |
 | `OVERLAND_SPEED_KMH` | 50.0 | Open-jaw routing | Average overland speed including stops, borders, and transfers — well below highway speed on purpose. |
 | `OVERLAND_MAX_REASONABLE_KM` | 2500 | Open-jaw routing | Beyond this, "take an overland bus back" stops being realistic (this app's 64 seeded destinations span every continent; not every pair is an overland-connected circuit). The calculator still returns numbers past this threshold, but flags them. |
+| `FLIGHT_THRESHOLD_KM` | 500 | Transportation cost | Below this distance, overland transport is assumed more practical than flying once airport-transfer time/cost is factored in. |
+| `FLIGHT_BASE_FARE_USD` / `FLIGHT_COST_PER_KM_USD` | 80.0 / 0.09 | Transportation cost | A rough global-average economy short/medium-haul fare curve (flat booking fee + per-km rate) — not tied to any real airline's pricing, same honest gap as the deal ingestion pipeline. |
+| `VEHICLE_CAPACITY` | 4 | Transportation cost | Typical rental car/rideshare seating capacity, used to decide how many vehicles (and therefore how many times the overland cost) a party needs. |
+| `LODGING_SHARE` / `FOOD_SHARE` / `ACTIVITIES_SHARE` / `LOCAL_TRANSPORT_SHARE` / `CONTINGENCY_SHARE` | 0.35 / 0.25 / 0.20 / 0.10 / 0.10 | Budget allocation | A more granular breakdown than `LODGING_SHARE_OF_BUDGET` (which was destination-cost-estimate-only) for splitting an *actual trip budget* once transportation is paid for. Shares sum to 1.0. |
 
 ---
 
@@ -246,3 +258,86 @@ ArbitragePercent = (1 - 0.9089) * 100 = 9.1%
 The yen weakened ~9% against the dollar over the year, so Kyoto is
 currently about 9% cheaper in real terms than its static budget estimate
 suggests.
+
+---
+
+## 7. Transportation cost estimation
+
+**Idea:** origin → destination travel is the one major trip-cost component
+this app didn't estimate at all before this. No free real fare API exists
+(same gap as the deal connectors), so this is a documented-assumption cost
+curve keyed on great-circle distance (`optimizations/geo.py::haversine_km`,
+already used by open-jaw routing) and travel mode, party-size-aware:
+
+```
+Mode = overland if distance_km <= FLIGHT_THRESHOLD_KM else flight
+
+OverlandCost = distance_km * OVERLAND_COST_PER_KM_USD * ceil(travelers / VEHICLE_CAPACITY)
+FlightCost   = (FLIGHT_BASE_FARE_USD + distance_km * FLIGHT_COST_PER_KM_USD) * travelers
+```
+
+Overland cost is **shared** across a vehicle up to its seating capacity —
+2 travelers cost the same total as 1, but a 5th traveler needs a second
+vehicle (and its cost). Flights are **not shareable**: fares are priced and
+paid per person, so total flight cost scales linearly with `travelers`.
+
+**Worked example — Banff, 2 travelers from Calgary (~110km)**:
+
+```
+distance_km = 110 (well under the 500km threshold -> overland)
+vehicles_needed = ceil(2 / 4) = 1
+OverlandCost = 110 * 0.07 * 1 = $7.70 total, $3.85/person
+```
+
+**Worked example — Banff, 3 travelers from Tokyo (~8,000km)**:
+
+```
+distance_km = 8,000 (over the threshold -> flight)
+FlightCost = (80 + 8000 * 0.09) * 3 = $2,400/person * ... 
+           = per-person: 80 + 720 = $800; total = $2,400 for 3 travelers
+```
+
+`GET /api/optimizations/transportation-cost/{destination_id}?origin_lat=&origin_lon=&travelers=`
+
+## 8. Budget allocation
+
+**Idea:** once transportation cost is known (§7, or entered directly), the
+remaining trip budget is split across lodging/food/activities/local-
+transport/contingency by documented percentage shares — a more granular,
+whole-trip version of `LODGING_SHARE_OF_BUDGET`, which only ever estimated
+one category against a per-day destination cost figure.
+
+```
+RemainingBudget = TotalBudget - TransportationCost
+Lodging          = RemainingBudget * LODGING_SHARE           (0.35)
+Food             = RemainingBudget * FOOD_SHARE               (0.25)
+Activities       = RemainingBudget * ACTIVITIES_SHARE         (0.20)
+LocalTransport   = RemainingBudget * LOCAL_TRANSPORT_SHARE    (0.10)
+Contingency      = RemainingBudget * CONTINGENCY_SHARE        (0.10)
+
+EffectiveDailyBudgetPerPerson = RemainingBudget / (Days * Travelers)
+```
+
+`RemainingBudget` is floored at 0 and the response flags `insufficient:
+true` when transportation cost alone exceeds the total budget, rather than
+returning a negative allocation.
+
+**Worked example** (`total_budget=2000`, `transportation_cost=500`,
+`days=5`, `travelers=2`):
+
+```
+RemainingBudget = 2000 - 500 = 1500
+Lodging = 1500 * 0.35 = $525
+Food = 1500 * 0.25 = $375
+Activities = 1500 * 0.20 = $300
+LocalTransport = 1500 * 0.10 = $150
+Contingency = 1500 * 0.10 = $150
+EffectiveDailyBudgetPerPerson = 1500 / (5 * 2) = $150/person/day
+```
+
+That last figure is exactly the shape `recommendation.py`'s `max_budget`
+parameter expects — chaining these two calculators before calling
+`get_top_recommendations` per destination is the still-open wiring step
+mentioned above.
+
+`GET /api/optimizations/budget-allocation?total_budget=&transportation_cost=&days=&travelers=`

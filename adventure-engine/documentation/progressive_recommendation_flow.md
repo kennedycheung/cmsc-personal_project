@@ -41,11 +41,16 @@ same spirit as Overpass's usage policy already respected by
 `osm_activities.py`). Results are cached for an hour -- a place's
 coordinates don't change.
 
-"Use my current GPS location" isn't in the UI -- just the manual city/
-airport text entry. A real implementation needs the browser's Geolocation
-API wired up on the frontend, deliberately out of scope for this pass; a
-disabled placeholder button was tried first and removed since a
-non-functional control is worse than no control.
+"Use my current location" is now wired up via the browser's Geolocation
+API (`navigator.geolocation.getCurrentPosition`, in `AdventureWizard.tsx`)
+alongside the manual city/airport text entry -- clicking it bypasses
+Nominatim entirely (the browser already gives real coordinates) and labels
+the origin "Your current location" rather than a geocoded place name. A
+denied/unavailable permission surfaces as an inline error and falls back
+to the manual text field, which stays fully functional either way. An
+earlier pass had this as a disabled placeholder button, then removed it
+since a non-functional control is worse than no control -- this is the
+real implementation that replaced it.
 
 ## Step 2: available time
 

@@ -32,6 +32,41 @@ describe('AdventureWizard', () => {
     expect(screen.getByRole('heading', { name: /where are you starting from/i })).toBeInTheDocument();
   });
 
+  it('resolves origin via "Use my current location" without calling geocoding', async () => {
+    const geocodeSpy = vi.spyOn(geocodeService, 'resolveLocation');
+    const getCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 41.88, longitude: -87.63, accuracy: 10 },
+      } as GeolocationPosition);
+    });
+    vi.stubGlobal('navigator', { ...navigator, geolocation: { getCurrentPosition } });
+
+    const user = userEvent.setup();
+    renderWizard();
+
+    await user.click(screen.getByRole('button', { name: /use my current location/i }));
+
+    expect(await screen.findByRole('heading', { name: /how much time do you have/i })).toBeInTheDocument();
+    expect(screen.getByText('Your current location')).toBeInTheDocument();
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(geocodeSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows an error when location access is denied', async () => {
+    const getCurrentPosition = vi.fn((_success: PositionCallback, error: PositionErrorCallback) => {
+      error({ code: 1, PERMISSION_DENIED: 1 } as GeolocationPositionError);
+    });
+    vi.stubGlobal('navigator', { ...navigator, geolocation: { getCurrentPosition } });
+
+    const user = userEvent.setup();
+    renderWizard();
+
+    await user.click(screen.getByRole('button', { name: /use my current location/i }));
+
+    expect(await screen.findByText(/location access was denied/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /where are you starting from/i })).toBeInTheDocument();
+  });
+
   it('resolves the origin and advances to the time-selection step', async () => {
     vi.spyOn(geocodeService, 'resolveLocation').mockResolvedValue(FAKE_ORIGIN);
     const user = userEvent.setup();

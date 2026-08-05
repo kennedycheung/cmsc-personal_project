@@ -11,14 +11,17 @@ from app.schemas.destination import DestinationRead
 from app.schemas.optimizations import (
     AirportOptimizationRead,
     AirportOptionRead,
+    BudgetAllocationRead,
     CurrencyArbitrageRead,
     MonthCostRead,
     OpenJawRead,
     OvernightTransportRead,
     PositioningRead,
     SeasonalArbitrageRead,
+    TransportationCostRead,
 )
 from app.services.optimizations.airports import NoAirportDataError, optimize_airport_choice
+from app.services.optimizations.budget_allocation import allocate_budget
 from app.services.optimizations.constants import TIME_VALUE_PER_HOUR_USD
 from app.services.optimizations.currency import (
     CurrencyRateUnavailableError,
@@ -29,6 +32,7 @@ from app.services.optimizations.open_jaw import evaluate_open_jaw
 from app.services.optimizations.overnight_transport import evaluate_overnight_transport
 from app.services.optimizations.positioning import evaluate_positioning_trip
 from app.services.optimizations.seasonal import evaluate_seasonal_arbitrage
+from app.services.optimizations.transportation import estimate_transportation_cost
 
 router = APIRouter(prefix="/optimizations", tags=["optimizations"])
 
@@ -87,6 +91,53 @@ def get_overnight_transport_savings(
         nights_saved=result.nights_saved,
         net_savings=result.net_savings,
         worth_it=result.worth_it,
+    )
+
+
+@router.get("/transportation-cost/{destination_id}", response_model=TransportationCostRead)
+def get_transportation_cost(
+    destination_id: int,
+    origin_lat: float = Query(..., ge=-90, le=90),
+    origin_lon: float = Query(..., ge=-180, le=180),
+    travelers: int = Query(1, ge=1, le=20),
+    db: Session = Depends(get_db),
+) -> TransportationCostRead:
+    destination = _get_destination_or_404(db, destination_id)
+    result = estimate_transportation_cost(
+        origin_lat, origin_lon, destination.latitude, destination.longitude, travelers
+    )
+
+    return TransportationCostRead(
+        distance_km=result.distance_km,
+        mode=result.mode.value,
+        travelers=result.travelers,
+        total_cost=result.total_cost,
+        cost_per_person=result.cost_per_person,
+    )
+
+
+@router.get("/budget-allocation", response_model=BudgetAllocationRead)
+def get_budget_allocation(
+    total_budget: float = Query(..., ge=0),
+    transportation_cost: float = Query(0, ge=0),
+    days: int = Query(..., ge=1, le=90),
+    travelers: int = Query(1, ge=1, le=20),
+) -> BudgetAllocationRead:
+    """Chainable with GET /optimizations/transportation-cost/{destination_id}
+    -- feed that endpoint's total_cost in as transportation_cost here."""
+    result = allocate_budget(total_budget, transportation_cost, days, travelers)
+
+    return BudgetAllocationRead(
+        total_budget=result.total_budget,
+        transportation_cost=result.transportation_cost,
+        remaining_budget=result.remaining_budget,
+        lodging=result.lodging,
+        food=result.food,
+        activities=result.activities,
+        local_transport=result.local_transport,
+        contingency=result.contingency,
+        effective_daily_budget_per_person=result.effective_daily_budget_per_person,
+        insufficient=result.insufficient,
     )
 
 
