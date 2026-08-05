@@ -85,6 +85,42 @@ body {
   opacity: 0.85;
 }
 
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  color: #ffffff;
+}
+
+.app-nav a {
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 600;
+  opacity: 0.9;
+  transition: opacity var(--transition-fast);
+}
+
+.app-nav a:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.app-nav-logout {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  opacity: 0.9;
+  cursor: pointer;
+  padding: 0;
+}
+
+.app-nav-logout:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
 .home-page {
   padding: 3rem 2rem;
   max-width: 1200px;
@@ -149,6 +185,12 @@ select {
 
 .button--primary:hover {
   background: var(--color-primary-hover);
+}
+
+.button--tiny {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
 }
 
 .button--secondary {
@@ -319,6 +361,54 @@ textarea {
   margin-top: 0;
 }
 
+.result-card--selectable {
+  cursor: pointer;
+}
+
+.result-card--selected {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.itinerary-stop {
+  cursor: pointer;
+  border-radius: var(--radius-sm, 6px);
+  padding: 0.15rem 0.3rem;
+  margin: 0 -0.3rem;
+}
+
+.itinerary-stop--selected {
+  background: var(--color-chip-active-bg);
+}
+
+.map-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.itinerary-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.itinerary-stop__drag-handle {
+  cursor: grab;
+  color: var(--color-text-muted);
+  margin-right: 0.25rem;
+}
+
+.itinerary-alternatives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0.75rem 1.5rem;
+}
+
 .chip {
   border: 1px solid var(--color-chip-border);
   background: var(--color-chip-bg);
@@ -420,8 +510,18 @@ textarea {
   background: #16a34a;
 }
 
+.map-pin--activity-dimmed {
+  background: #16a34a;
+  opacity: 0.45;
+}
+
 .map-pin--stop {
   background: var(--color-primary);
+}
+
+.map-pin--selected {
+  outline: 3px solid #f59e0b;
+  outline-offset: 1px;
 }
 
 .result-card__link {
@@ -581,6 +681,10 @@ textarea:focus-visible,
   justify-content: space-between;
   gap: 1rem;
   margin-top: 1.5rem;
+}
+
+.wizard-gps {
+  margin-top: 0.5rem;
 }
 
 .origin-summary {

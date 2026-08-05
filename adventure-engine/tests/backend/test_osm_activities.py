@@ -137,3 +137,35 @@ def test_normalize_falls_back_when_no_street_address():
     }
     normalized = osm_module.normalize_osm_element_raw(element, 40.7128, -74.0060, "New York City")
     assert normalized["location"] == "New York City"
+
+
+def test_normalize_populates_multi_tags_and_neighborhood():
+    element = {
+        "type": "node",
+        "id": 997,
+        "lat": 48.858,
+        "lon": 2.294,
+        "tags": {"tourism": "museum", "name": "Fake Museum", "addr:suburb": "Le Marais"},
+    }
+    normalized = osm_module.normalize_osm_element_raw(element, 48.8566, 2.3522, "Paris")
+    assert normalized["tags"] == "museum,culture,history,art"
+    assert normalized["neighborhood"] == "Le Marais"
+
+
+def test_normalize_neighborhood_none_without_suburb_tag():
+    element = {
+        "type": "node",
+        "id": 996,
+        "lat": 48.858,
+        "lon": 2.294,
+        "tags": {"tourism": "museum", "name": "Fake Museum"},
+    }
+    normalized = osm_module.normalize_osm_element_raw(element, 48.8566, 2.3522, "Paris")
+    assert normalized["neighborhood"] is None
+
+
+def test_ingested_osm_activity_exposes_tags_via_api(client):
+    client.post("/api/activities/ingest-osm", params={"destination_id": 1})
+    activities = client.get("/api/activities/destination/1").json()
+    museum = next(a for a in activities if a["name"] == "Fake Museum")
+    assert museum["tags"] == "museum,culture,history,art"

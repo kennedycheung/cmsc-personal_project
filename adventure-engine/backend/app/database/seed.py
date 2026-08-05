@@ -1594,6 +1594,44 @@ SAMPLE_DESTINATIONS: list[dict] = [
 ]
 
 
+# Extra tags layered on top of each hand-curated activity's own category, so
+# interest matching (see itinerary.py) can score partial matches -- same
+# purpose and spirit as osm_activities.py's _CATEGORY_SYNONYMS, just against
+# this dataset's own freer category vocabulary rather than OSM's.
+_SEED_CATEGORY_SYNONYMS: dict[str, list[str]] = {
+    "adventure": ["outdoors", "thrill"],
+    "art": ["culture", "gallery"],
+    "culture": ["history", "sightseeing"],
+    "food": ["dining", "local"],
+    "hiking": ["outdoors", "nature"],
+    "history": ["culture", "sightseeing"],
+    "nightlife": ["bar", "drinks", "entertainment"],
+    "outdoor": ["outdoors", "nature"],
+    "relaxation": ["wellness"],
+    "scenery": ["nature", "photography", "sightseeing"],
+    "sightseeing": ["culture", "photography"],
+    "skiing": ["outdoor_recreation", "winter_sports", "adventure"],
+    "surfing": ["outdoor_recreation", "water", "adventure"],
+    "theme-parks": ["entertainment", "family"],
+    "wildlife": ["nature", "outdoors"],
+}
+
+
+def _expand_seed_activity(activity: dict) -> dict:
+    """Fills in `tags` and `neighborhood` for a hand-curated seed activity,
+    best-effort, without requiring every one of the ~90 entries above to be
+    hand-edited. `neighborhood` defaults to the existing `location` string,
+    which is already a neighborhood/city label rather than a full street
+    address for this dataset (see Activity.location's docstring)."""
+    expanded = dict(activity)
+    category = expanded.get("category")
+    if category:
+        synonyms = _SEED_CATEGORY_SYNONYMS.get(category, [])
+        expanded.setdefault("tags", ",".join([category, *synonyms]))
+    expanded.setdefault("neighborhood", expanded.get("location"))
+    return expanded
+
+
 def seed_sample_data(db: Session) -> None:
     """Insert the sample dataset if the destinations table is currently empty."""
     if db.query(Destination).first() is not None:
@@ -1604,7 +1642,7 @@ def seed_sample_data(db: Session) -> None:
         activities_data = entry.pop("activities", [])
         airports_data = entry.pop("airports", [])
         destination = Destination(**entry)
-        destination.activities = [Activity(**activity) for activity in activities_data]
+        destination.activities = [Activity(**_expand_seed_activity(activity)) for activity in activities_data]
         destination.airports = [Airport(**airport) for airport in airports_data]
         db.add(destination)
 

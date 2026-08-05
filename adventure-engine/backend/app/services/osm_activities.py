@@ -109,6 +109,55 @@ _OSM_TAGS: dict[tuple[str, str], tuple[str, str, float, bool]] = {
     ("leisure", "park"): ("relaxation", "park", 1.5, True),
 }
 
+# Extra tags layered on top of each category's own name and group, so
+# interest matching (see itinerary.py) can score a partial match instead of
+# requiring one exact category string -- e.g. a "museum" also matches a
+# request for "history" or "art". A documented-assumption table, same spirit
+# as _OSM_TAGS itself; "sightseeing" is the fallback category used when no
+# _OSM_TAGS entry matches.
+_CATEGORY_SYNONYMS: dict[str, list[str]] = {
+    "beach": ["swimming", "outdoors"],
+    "lake": ["water", "outdoors"],
+    "waterfall": ["scenic", "outdoors"],
+    "viewpoint": ["scenic", "photography"],
+    "camping": ["outdoors", "adventure"],
+    "wildlife_refuge": ["wildlife", "outdoors"],
+    "national_park": ["hiking", "outdoors"],
+    "botanical_garden": ["garden", "relaxation"],
+    "cafe": ["coffee", "casual"],
+    "bakery": ["sweets", "casual"],
+    "restaurant": ["dining"],
+    "food_hall": ["dining", "casual"],
+    "brewery": ["nightlife", "drinks"],
+    "winery": ["drinks", "tasting"],
+    "museum": ["history", "art"],
+    "gallery": ["art"],
+    "landmark": ["sightseeing", "photography"],
+    "library": ["quiet"],
+    "historic_site": ["history"],
+    "theater": ["performing_arts"],
+    "cinema": ["movies"],
+    "nightlife": ["bar", "drinks"],
+    "escape_room": ["games"],
+    "arcade": ["games"],
+    "sports_venue": ["sports"],
+    "antiques": ["vintage"],
+    "mall": [],
+    "department_store": [],
+    "souvenir_shop": ["gifts"],
+    "bookstore": ["quiet"],
+    "market": ["food", "local"],
+    "kayak_paddleboard": ["water", "adventure"],
+    "skiing": ["winter_sports", "adventure"],
+    "cycling": ["adventure"],
+    "climbing": ["adventure"],
+    "spa": ["wellness"],
+    "hot_spring": ["wellness", "nature"],
+    "picnic": ["outdoors"],
+    "park": ["outdoors", "nature"],
+    "sightseeing": [],
+}
+
 _OVERPASS_QUERY_TEMPLATE = """
 [out:json][timeout:55];
 (
@@ -191,6 +240,14 @@ def _build_address(tags: dict, fallback_location: str) -> str:
         parts.append(postcode)
     address = ", ".join(parts)
     return address[:250]
+
+
+def _build_neighborhood(tags: dict) -> str | None:
+    """OSM's addr:suburb is the closest keyless equivalent to a
+    neighborhood/district label. Not every POI has one (same honest gap as
+    _build_address) -- None here means "unknown", not "no neighborhood"."""
+    suburb = tags.get("addr:suburb")
+    return suburb[:120] if suburb else None
 
 
 def _parse_simple_opening_hours(raw: str | None) -> tuple[str | None, str | None]:
@@ -284,6 +341,7 @@ def normalize_osm_element_raw(
     travel_minutes = round((distance_km / ASSUMED_LOCAL_SPEED_KMH) * 60, 1)
 
     opening_time, closing_time = _parse_simple_opening_hours(tags.get("opening_hours"))
+    tag_list = ",".join([category, group, *_CATEGORY_SYNONYMS.get(category, [])])
 
     return {
         "source": "osm",
@@ -292,6 +350,8 @@ def normalize_osm_element_raw(
         "description": tags.get("description"),
         "group": group,
         "category": category,
+        "tags": tag_list,
+        "neighborhood": _build_neighborhood(tags),
         # OSM doesn't carry pricing -- 0/unknown, the same honest gap as
         # the deal connectors' placeholder data (see
         # deal_ingestion_pipeline.md). Free real attractions (parks,

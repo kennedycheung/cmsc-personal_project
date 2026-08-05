@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { MapContainer, Marker, Polyline, Popup, TileLayer } from 'react-leaflet';
+import { useEffect, useMemo, useRef } from 'react';
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -8,6 +8,7 @@ import type { LatLon } from '../services/routing';
 import type { Activity, DayItinerary, Destination } from '../services/types';
 
 const DAY_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c', '#0891b2'];
+const SELECTED_ZOOM = 15;
 
 function dayColor(day: number): string {
   return DAY_COLORS[(day - 1) % DAY_COLORS.length];
@@ -23,13 +24,36 @@ function createDivIcon(html: string, size: number): L.DivIcon {
 }
 
 const destinationIcon = createDivIcon('<div class="map-pin map-pin--destination">&#9733;</div>', 30);
-const activityIcon = createDivIcon('<div class="map-pin map-pin--activity"></div>', 16);
 
-function stopIcon(day: number, order: number): L.DivIcon {
+function activityIcon(dimmed: boolean, selected: boolean): L.DivIcon {
+  const classes = ['map-pin', dimmed ? 'map-pin--activity-dimmed' : 'map-pin--activity'];
+  if (selected) classes.push('map-pin--selected');
+  return createDivIcon(`<div class="${classes.join(' ')}"></div>`, selected ? 20 : 16);
+}
+
+function stopIcon(day: number, order: number, selected: boolean): L.DivIcon {
+  const classes = ['map-pin', 'map-pin--stop'];
+  if (selected) classes.push('map-pin--selected');
   return createDivIcon(
-    `<div class="map-pin map-pin--stop" style="background:${dayColor(day)}">${order}</div>`,
-    24,
+    `<div class="${classes.join(' ')}" style="background:${dayColor(day)}">${order}</div>`,
+    selected ? 28 : 24,
   );
+}
+
+interface MapFlyToControllerProps {
+  target: LatLon | null;
+}
+
+function MapFlyToController({ target }: MapFlyToControllerProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (target) {
+      map.flyTo([target.lat, target.lon], SELECTED_ZOOM);
+    }
+  }, [map, target]);
+
+  return null;
 }
 
 interface DayRouteProps {
@@ -42,14 +66,14 @@ function DayRoute({ day }: DayRouteProps) {
     lon: item.activity.longitude,
   }));
 
-  const { data: routedPoints, isError } = useWalkingRoute(points);
+  const { data: route, isError } = useWalkingRoute(points);
 
   if (points.length < 2) {
     return null;
   }
 
-  const usedFallback = isError || !routedPoints;
-  const path: [number, number][] = (usedFallback ? points : routedPoints).map((p) => [p.lat, p.lon]);
+  const usedFallback = isError || !route;
+  const path: [number, number][] = (usedFallback ? points : route.points).map((p) => [p.lat, p.lon]);
 
   return (
     <Polyline
@@ -63,19 +87,53 @@ interface AdventureMapProps {
   destination: Destination;
   activities: Activity[];
   itineraryDays?: DayItinerary[];
+  selectedActivityId?: number | null;
+  onSelectActivity?: (id: number) => void;
+  showAllActivities?: boolean;
 }
 
-export default function AdventureMap({ destination, activities, itineraryDays }: AdventureMapProps) {
+export default function AdventureMap({
+  destination,
+  activities,
+  itineraryDays,
+  selectedActivityId = null,
+  onSelectActivity,
+  showAllActivities = false,
+}: AdventureMapProps) {
   const center: [number, number] = [destination.latitude, destination.longitude];
+  const markerRefs = useRef<Record<number, L.Marker>>({});
+
+  // Once an itinerary exists, the itinerary's own stop markers (below) are
+  // the primary view -- the full destination activity list only overlays as
+  // dimmed, secondary markers when explicitly requested, so the map isn't
+  // cluttered with every activity by default.
+  const hasItinerary = Boolean(itineraryDays && itineraryDays.length > 0);
+  const shownActivities = !hasItinerary || showAllActivities ? activities : [];
 
   const bounds = useMemo(() => {
     const points: [number, number][] = [[destination.latitude, destination.longitude]];
-    activities.forEach((activity) => points.push([activity.latitude, activity.longitude]));
+    shownActivities.forEach((activity) => points.push([activity.latitude, activity.longitude]));
     itineraryDays?.forEach((day) =>
       day.activities.forEach((item) => points.push([item.activity.latitude, item.activity.longitude])),
     );
     return points;
-  }, [destination, activities, itineraryDays]);
+  }, [destination, shownActivities, itineraryDays]);
+
+  const flyToTarget = useMemo<LatLon | null>(() => {
+    if (selectedActivityId == null) return null;
+    const fromItinerary = itineraryDays
+      ?.flatMap((day) => day.activities)
+      .find((item) => item.activity.id === selectedActivityId)?.activity;
+    const fromActivities = activities.find((activity) => activity.id === selectedActivityId);
+    const match = fromItinerary ?? fromActivities;
+    return match ? { lat: match.latitude, lon: match.longitude } : null;
+  }, [selectedActivityId, itineraryDays, activities]);
+
+  useEffect(() => {
+    if (selectedActivityId != null) {
+      markerRefs.current[selectedActivityId]?.openPopup();
+    }
+  }, [selectedActivityId, flyToTarget]);
 
   const hasRoutes = Boolean(itineraryDays && itineraryDays.some((day) => day.activities.length >= 2));
 
@@ -94,6 +152,8 @@ export default function AdventureMap({ destination, activities, itineraryDays }:
           url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
         />
 
+        <MapFlyToController target={flyToTarget} />
+
         <Marker position={center} icon={destinationIcon}>
           <Popup>
             <strong>{destination.name}</strong>
@@ -102,8 +162,16 @@ export default function AdventureMap({ destination, activities, itineraryDays }:
           </Popup>
         </Marker>
 
-        {activities.map((activity) => (
-          <Marker key={activity.id} position={[activity.latitude, activity.longitude]} icon={activityIcon}>
+        {shownActivities.map((activity) => (
+          <Marker
+            key={activity.id}
+            position={[activity.latitude, activity.longitude]}
+            icon={activityIcon(hasItinerary, activity.id === selectedActivityId)}
+            eventHandlers={{ click: () => onSelectActivity?.(activity.id) }}
+            ref={(instance) => {
+              if (instance) markerRefs.current[activity.id] = instance;
+            }}
+          >
             <Popup>
               <strong>{activity.name}</strong>
               <br />
@@ -125,7 +193,11 @@ export default function AdventureMap({ destination, activities, itineraryDays }:
             <Marker
               key={`day-${day.day}-stop-${item.activity.id}`}
               position={[item.activity.latitude, item.activity.longitude]}
-              icon={stopIcon(day.day, index + 1)}
+              icon={stopIcon(day.day, index + 1, item.activity.id === selectedActivityId)}
+              eventHandlers={{ click: () => onSelectActivity?.(item.activity.id) }}
+              ref={(instance) => {
+                if (instance) markerRefs.current[item.activity.id] = instance;
+              }}
             >
               <Popup>
                 <strong>

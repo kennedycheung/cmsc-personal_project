@@ -7,11 +7,40 @@ Open-Meteo outage is exactly what makes them straightforward to test this
 way).
 """
 
-from datetime import date, timedelta
+from collections import Counter
+from datetime import date, time, timedelta
 from unittest.mock import patch
 
 import pytest
+from app.models.activity import Activity
+from app.models.destination import Destination
 from app.services import weather as weather_module
+from app.services.itinerary import (
+    DIVERSITY_PENALTY,
+    NEIGHBORHOOD_BONUS,
+    _day_cutoff_for,
+    _score_activity,
+    _score_time_fit,
+    generate_itinerary,
+)
+
+
+def _make_activity(**overrides) -> Activity:
+    defaults = dict(
+        destination_id=1,
+        name="Test Activity",
+        category="museum",
+        tags="museum,history,art",
+        price=0.0,
+        duration_hours=1.0,
+        travel_minutes=10.0,
+        is_outdoor=False,
+        neighborhood=None,
+        latitude=0.0,
+        longitude=0.0,
+    )
+    defaults.update(overrides)
+    return Activity(**defaults)
 
 
 class _FakeResponse:
@@ -170,6 +199,152 @@ def test_itinerary_with_far_future_start_date_uses_typical_estimate(client):
     assert body["days"][0]["weather"]["is_estimate"] is True
     assert any("historical-average estimate" in w for w in body["warnings"])
     weather_module._typical_cache.clear()
+
+
+def test_score_activity_multi_tag_partial_interest_match():
+    activity = _make_activity(category="museum", tags="museum,history,art")
+    common_args = dict(
+        day_budget=None, max_travel_minutes=0, day_forecast=None, current_slot="afternoon",
+        categories_today=Counter(), categories_trip=Counter(), neighborhoods_today=set(),
+    )
+    partial_match = _score_activity(activity, {"history", "architecture"}, **common_args)
+    no_match = _score_activity(activity, {"architecture", "nightlife"}, **common_args)
+    assert partial_match > no_match
+
+
+def test_score_activity_diversity_penalty_reduces_repeat_score():
+    activity = _make_activity(category="museum", tags="museum,history,art")
+    common_args = dict(day_budget=None, max_travel_minutes=0, day_forecast=None, current_slot="afternoon")
+    base_score = _score_activity(
+        activity, set(), categories_today=Counter(), categories_trip=Counter(), neighborhoods_today=set(),
+        **common_args,
+    )
+    repeated_score = _score_activity(
+        activity, set(), categories_today=Counter({"museum": 2}), categories_trip=Counter(), neighborhoods_today=set(),
+        **common_args,
+    )
+    assert repeated_score == pytest.approx(base_score * DIVERSITY_PENALTY**2)
+
+
+def test_score_activity_neighborhood_bonus():
+    activity = _make_activity(category="museum", tags="museum", neighborhood="Le Marais")
+    common_args = dict(
+        day_budget=None, max_travel_minutes=0, day_forecast=None, current_slot="afternoon",
+        categories_today=Counter(), categories_trip=Counter(),
+    )
+    base_score = _score_activity(activity, set(), neighborhoods_today=set(), **common_args)
+    bonus_score = _score_activity(activity, set(), neighborhoods_today={"Le Marais"}, **common_args)
+    assert bonus_score == pytest.approx(base_score + NEIGHBORHOOD_BONUS)
+
+
+def test_time_fit_prefers_matching_slot():
+    assert _score_time_fit({"cafe"}, "morning") > _score_time_fit({"cafe"}, "evening")
+    assert _score_time_fit({"nightlife"}, "late_night") > _score_time_fit({"nightlife"}, "morning")
+    assert _score_time_fit({"some_untagged_category"}, "morning") == 0.6
+
+
+def test_day_cutoff_extends_for_late_night_only_activities():
+    assert _day_cutoff_for({"nightlife"}) == time(23, 59)
+    assert _day_cutoff_for({"museum"}) == time(21, 0)
+    assert _day_cutoff_for({"nightlife", "cafe"}) == time(21, 0)
+
+
+def test_generate_itinerary_favors_diversity_over_repeats(db_session):
+    destination = Destination(name="Test City", country="Testland", region="Test Region", latitude=0.0, longitude=0.0)
+    db_session.add(destination)
+    db_session.flush()
+
+    activities = [
+        Activity(
+            destination_id=destination.id, name=f"Museum {i}", category="museum", tags="museum,history",
+            price=0.0, duration_hours=1.0, travel_minutes=10.0, is_outdoor=False, latitude=0.0, longitude=0.0,
+        )
+        for i in range(3)
+    ] + [
+        Activity(
+            destination_id=destination.id, name="City Park", category="park", tags="park,relaxation",
+            price=0.0, duration_hours=1.0, travel_minutes=10.0, is_outdoor=False, latitude=0.0, longitude=0.0,
+        )
+    ]
+    db_session.add_all(activities)
+    db_session.commit()
+
+    with patch.object(weather_module.httpx, "get", return_value=_FakeResponse(_fake_daily_payload())):
+        result = generate_itinerary(db_session, destination.id, days=1)
+
+    scheduled = result.days[0].activities
+    assert len(scheduled) == 4
+    # The 2nd pick should be the differently-categorized park, not a repeat
+    # museum, since the diversity penalty makes the untouched category win
+    # once the first museum has already been scheduled.
+    assert scheduled[1].activity.category == "park"
+
+
+def test_regenerate_day_excludes_locked_activities(db_session, client):
+    destination = Destination(name="Test City 2", country="Testland", region="Test Region", latitude=1.0, longitude=1.0)
+    db_session.add(destination)
+    db_session.flush()
+
+    kept = Activity(
+        destination_id=destination.id, name="Keep Me", category="museum", tags="museum",
+        price=0.0, duration_hours=1.0, travel_minutes=10.0, is_outdoor=False, latitude=1.0, longitude=1.0,
+    )
+    locked = Activity(
+        destination_id=destination.id, name="Already Used Elsewhere", category="park", tags="park",
+        price=0.0, duration_hours=1.0, travel_minutes=10.0, is_outdoor=False, latitude=1.0, longitude=1.0,
+    )
+    db_session.add_all([kept, locked])
+    db_session.commit()
+
+    response = client.post(
+        f"/api/itineraries/{destination.id}/regenerate-day",
+        json={"day": 1, "days": 1, "locked_activity_ids": [locked.id]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    names = {item["activity"]["name"] for item in body["activities"]}
+    assert "Already Used Elsewhere" not in names
+    assert "Keep Me" in names
+
+
+def test_regenerate_day_missing_destination_404(client):
+    response = client.post(
+        "/api/itineraries/9999/regenerate-day", json={"day": 1, "days": 1, "locked_activity_ids": []}
+    )
+    assert response.status_code == 404
+
+
+def test_activity_alternatives_ranked_by_tag_overlap(db_session, client):
+    destination = Destination(name="Test City 3", country="Testland", region="Test Region", latitude=2.0, longitude=2.0)
+    db_session.add(destination)
+    db_session.flush()
+
+    target = Activity(
+        destination_id=destination.id, name="Target Museum", category="museum", tags="museum,history,art",
+        price=0.0, duration_hours=1.0, travel_minutes=10.0, is_outdoor=False, latitude=2.0, longitude=2.0,
+    )
+    close_match = Activity(
+        destination_id=destination.id, name="History Gallery", category="gallery", tags="gallery,history,art",
+        price=0.0, duration_hours=1.0, travel_minutes=10.0, is_outdoor=False, latitude=2.0, longitude=2.0,
+    )
+    unrelated = Activity(
+        destination_id=destination.id, name="Nightclub", category="nightlife", tags="nightlife,bar",
+        price=0.0, duration_hours=1.0, travel_minutes=10.0, is_outdoor=False, latitude=2.0, longitude=2.0,
+    )
+    db_session.add_all([target, close_match, unrelated])
+    db_session.commit()
+
+    response = client.get(f"/api/activities/{target.id}/alternatives")
+    assert response.status_code == 200
+    body = response.json()
+    names = [item["name"] for item in body]
+    assert names[0] == "History Gallery"
+    assert "Target Museum" not in names
+
+
+def test_activity_alternatives_missing_activity_404(client):
+    response = client.get("/api/activities/9999/alternatives")
+    assert response.status_code == 404
 
 
 def test_saved_adventure_lifecycle_and_cross_user_isolation(client, auth_headers):

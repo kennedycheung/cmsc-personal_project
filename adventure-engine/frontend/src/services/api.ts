@@ -24,10 +24,10 @@ function buildUrl(path: string, params?: QueryParams): string {
   return url.toString();
 }
 
-export async function apiGet<T>(path: string, params?: QueryParams): Promise<T> {
+async function handleResponse<T>(promise: Promise<Response>): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(buildUrl(path, params));
+    response = await promise;
   } catch {
     throw new ApiError('Could not reach the backend API. Is it running?', 0);
   }
@@ -39,4 +39,22 @@ export async function apiGet<T>(path: string, params?: QueryParams): Promise<T> 
   }
 
   return response.json() as Promise<T>;
+}
+
+function authHeaders(token?: string): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export function apiGet<T>(path: string, params?: QueryParams, token?: string): Promise<T> {
+  return handleResponse<T>(fetch(buildUrl(path, params), { headers: authHeaders(token) }));
+}
+
+export function apiPost<T>(path: string, body?: unknown, token?: string): Promise<T> {
+  return handleResponse<T>(
+    fetch(buildUrl(path), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    }),
+  );
 }

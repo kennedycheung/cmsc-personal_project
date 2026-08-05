@@ -37,6 +37,20 @@ class Activity(Base):
     # seed activities (e.g. "Old Town Square").
     location: Mapped[str | None] = mapped_column(String(250), nullable=True)
 
+    # The neighborhood/suburb/district this activity sits in (e.g. "Le Marais",
+    # "Wicker Park"), distinct from the full `location` address string above.
+    # Populated from OSM's addr:suburb tag where available; best-effort for
+    # hand-curated seed activities. Used to softly favor clustering an
+    # itinerary day's stops in the same area (see itinerary.py).
+    neighborhood: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+    # Comma-separated tags, e.g. "museum,history,architecture" -- richer than
+    # `category` (a single primary label) so interest matching can score
+    # partial overlaps instead of requiring one exact category match. Same
+    # comma-separated-Text convention as Destination.interests, for the same
+    # reason (zero schema drift across SQLite/Postgres).
+    tags: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # "HH:MM" 24-hour local time. Both null means the activity has no fixed hours
     # (treated as open all day by the itinerary scheduler).
     opening_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
@@ -55,3 +69,8 @@ class Activity(Base):
     is_outdoor: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     destination: Mapped["Destination"] = relationship(back_populates="activities")
+
+    def tag_list(self) -> list[str]:
+        if not self.tags:
+            return []
+        return [tag.strip().lower() for tag in self.tags.split(",") if tag.strip()]

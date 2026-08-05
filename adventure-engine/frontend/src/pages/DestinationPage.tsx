@@ -1,11 +1,13 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import AdventureMap from '../components/AdventureMap';
+import ItineraryDayEditor from '../components/ItineraryDayEditor';
 import { AVAILABLE_INTERESTS } from '../constants';
 import { useDestination, useDestinationActivities } from '../hooks/useDestinationDetail';
 import { useItinerary } from '../hooks/useItinerary';
 import { ApiError } from '../services/api';
+import type { DayItinerary } from '../services/types';
 
 export default function DestinationPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,8 +22,26 @@ export default function DestinationPage() {
   const [itineraryParams, setItineraryParams] = useState<{ days: number; budget?: number; interests?: string } | null>(
     null,
   );
+  const [selectedActivityId, setSelectedActivityId] = useState<number | null>(null);
+  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [editableDays, setEditableDays] = useState<DayItinerary[] | null>(null);
 
   const itineraryQuery = useItinerary(destinationId, itineraryParams ?? { days: 3 }, itineraryParams !== null);
+
+  // Edits (reorder/remove/swap/regenerate) happen on this local copy, reset
+  // whenever a fresh itinerary is generated -- the server response is the
+  // source of truth only at generation time, not after every edit.
+  useEffect(() => {
+    if (itineraryQuery.data) {
+      setEditableDays(itineraryQuery.data.days);
+    }
+  }, [itineraryQuery.data]);
+
+  const handleDayChange = (updatedDay: DayItinerary) => {
+    setEditableDays((current) =>
+      current ? current.map((day) => (day.day === updatedDay.day ? updatedDay : day)) : current,
+    );
+  };
 
   const toggleInterest = (interest: string) => {
     setSelectedInterests((current) =>
@@ -107,8 +127,25 @@ export default function DestinationPage() {
         <p className='map-fallback-note'>
           Interactive map — the same destination, activities, and itinerary details are also listed as text below.
         </p>
+        {editableDays && (
+          <label className='map-toggle'>
+            <input
+              type='checkbox'
+              checked={showAllActivities}
+              onChange={(event) => setShowAllActivities(event.target.checked)}
+            />
+            Show nearby activities
+          </label>
+        )}
         <div role='img' aria-label={`Map of ${destination.name} showing the destination and nearby activities`}>
-          <AdventureMap destination={destination} activities={activities} itineraryDays={itineraryQuery.data?.days} />
+          <AdventureMap
+            destination={destination}
+            activities={activities}
+            itineraryDays={editableDays ?? undefined}
+            selectedActivityId={selectedActivityId}
+            onSelectActivity={setSelectedActivityId}
+            showAllActivities={showAllActivities}
+          />
         </div>
       </section>
 
@@ -182,34 +219,28 @@ export default function DestinationPage() {
           </div>
         )}
 
-        {itineraryQuery.data && !itineraryQuery.isFetching && (
+        {editableDays && !itineraryQuery.isFetching && (
           <div className='result-grid'>
-            {itineraryQuery.data.warnings.map((warning) => (
+            {itineraryQuery.data?.warnings.map((warning) => (
               <p key={warning} className='itinerary-warning'>
                 {warning}
               </p>
             ))}
-            {itineraryQuery.data.days.map((day) => (
-              <article key={day.day} className='result-card'>
-                <h4>Day {day.day}</h4>
-                {day.activities.length === 0 ? (
-                  <p>No activities scheduled.</p>
-                ) : (
-                  <ul>
-                    {day.activities.map((item) => (
-                      <li key={item.activity.id}>
-                        <strong>
-                          {item.start_time}–{item.end_time}
-                        </strong>{' '}
-                        {item.activity.name} (${item.activity.price})
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <p>
-                  <strong>Day total:</strong> ${day.total_cost} · {day.total_travel_minutes} min travel
-                </p>
-              </article>
+            {editableDays.map((day) => (
+              <ItineraryDayEditor
+                key={day.day}
+                destinationId={destinationId}
+                day={day}
+                totalDays={editableDays.length}
+                otherDaysActivityIds={editableDays
+                  .filter((other) => other.day !== day.day)
+                  .flatMap((other) => other.activities.map((item) => item.activity.id))}
+                budget={itineraryParams?.budget}
+                interests={itineraryParams?.interests}
+                selectedActivityId={selectedActivityId}
+                onSelectActivity={setSelectedActivityId}
+                onChange={handleDayChange}
+              />
             ))}
           </div>
         )}
@@ -222,7 +253,15 @@ export default function DestinationPage() {
         ) : (
           <div className='result-grid'>
             {activities.map((activity) => (
-              <article key={activity.id} className='result-card'>
+              <article
+                key={activity.id}
+                className={
+                  activity.id === selectedActivityId
+                    ? 'result-card result-card--selectable result-card--selected'
+                    : 'result-card result-card--selectable'
+                }
+                onClick={() => setSelectedActivityId(activity.id)}
+              >
                 <h4>{activity.name}</h4>
                 <p>{activity.description}</p>
                 <ul>

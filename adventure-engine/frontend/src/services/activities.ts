@@ -8,3 +8,9 @@ export function listActivities(params?: { skip?: number; limit?: number }): Prom
 export function getActivitiesForDestination(destinationId: number): Promise<Activity[]> {
   return apiGet<Activity[]>(`/activities/destination/${destinationId}`);
 }
+
+export function getActivityAlternatives(activityId: number, excludeIds: number[]): Promise<Activity[]> {
+  return apiGet<Activity[]>(`/activities/${activityId}/alternatives`, {
+    exclude_ids: excludeIds.length > 0 ? excludeIds.join(',') : undefined,
+  });
+}

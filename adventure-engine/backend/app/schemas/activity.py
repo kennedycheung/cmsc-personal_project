@@ -7,6 +7,8 @@ class ActivityRead(BaseModel):
     name: str
     description: str | None = None
     category: str | None = None
+    tags: str | None = None
+    neighborhood: str | None = None
     price: float
     duration_hours: float | None = None
     location: str | None = None
